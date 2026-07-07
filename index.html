@@ -1774,13 +1774,15 @@
     </div>
     <div class="form-group">
       <label class="form-label">Message *</label>
-      <textarea class="form-input form-textarea" id="an-message" rows="6" placeholder="Write the announcement details here... (links will become clickable automatically, and spacing/line breaks are preserved exactly as you type them)"></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Photos (optional)</label>
-      <input type="file" id="an-photo-input" accept="image/*" multiple style="display:none" onchange="handleAnnouncePhotoFiles(this.files)">
-      <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('an-photo-input').click()">🖼️ Add Photos</button>
-      <div id="an-photo-previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+      <div class="rte-wrap">
+        <div class="rte-toolbar">
+          <button type="button" class="rte-btn" onclick="wrapAnnounceSelection('**')" title="Bold (Ctrl+B)"><b>B</b></button>
+          <button type="button" class="rte-btn" onclick="wrapAnnounceSelection('_')" title="Italic (Ctrl+I)"><i>I</i></button>
+          <button type="button" class="rte-btn" onclick="wrapAnnounceSelection('++')" title="Underline (Ctrl+U)"><u>U</u></button>
+        </div>
+        <textarea class="form-input form-textarea" id="an-message" rows="6" style="border-radius:0 0 10px 10px" placeholder="Write the announcement details here... (links become clickable automatically, spacing/line breaks are preserved exactly as typed)"></textarea>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">Select text and use the buttons above (or Ctrl/Cmd+B/I/U) — or type <code>**bold**</code>, <code>_italic_</code>, <code>++underline++</code> directly.</div>
     </div>
     <div class="form-actions">
       <button class="btn btn-secondary" onclick="closeModal('announce')">Cancel</button>
@@ -2449,7 +2451,7 @@ function closeModal(type) {
   if (type==='todo') { ['td-id','td-title','td-priority','td-assigned','td-deadline'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); rteClear('td-notes'); document.getElementById('modal-todo-title').textContent='Add Task'; clearMentions(); }
   if (type==='specs') { ['sp-id','sp-product','sp-revision','sp-date','sp-approved','sp-link'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); rteClear('sp-summary'); document.getElementById('modal-specs-title').textContent='Add Specification'; }
   if (type==='trials') { ['tr-id','tr-product','tr-date','tr-assigned','tr-link','tr-notes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); document.getElementById('tr-ai-area').style.display='none'; document.getElementById('modal-trials-title').textContent='Add Trial Report'; }
-  if (type==='announce') { const _ant=document.getElementById('an-title'); if(_ant) _ant.value=''; rteClear('an-message'); resetAnnouncePhotos(); }
+  if (type==='announce') { const _ant=document.getElementById('an-title'); if(_ant) _ant.value=''; rteClear('an-message'); }
   if (type==='calevent') { ['ce-id','ce-title','ce-date','ce-end-date','ce-reminder','ce-notes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); const sel=document.getElementById('ce-type'); if(sel) sel.value='event'; document.getElementById('modal-calevent-title').textContent='📆 Add Event'; }
 }
 
@@ -2470,7 +2472,6 @@ async function saveAnnouncement() {
   const now = new Date().toISOString();
   const row = {
     title, message,
-    photos: _anPhotos.length ? JSON.stringify(_anPhotos) : null,
     posted_by: currentUser,
     posted_at: now,
     last_updated_by: currentUser,
@@ -3635,6 +3636,46 @@ function parseAnnouncePhotos(a) {
   try { const p = JSON.parse(a.photos); return Array.isArray(p) ? p : []; } catch (e) { return []; }
 }
 
+// Wraps (or unwraps) the current textarea selection with a marker pair used for
+// lightweight bold/italic/underline formatting that survives as plain text.
+function wrapAnnounceSelection(marker) {
+  const ta = document.getElementById('an-message');
+  if (!ta) return;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const val = ta.value;
+  const selected = val.slice(start, end);
+  const before = val.slice(0, start);
+  const after = val.slice(end);
+  const alreadyWrapped = selected.length >= marker.length * 2 &&
+    selected.startsWith(marker) && selected.endsWith(marker);
+
+  if (!selected.length) {
+    ta.value = before + marker + marker + after;
+    const pos = start + marker.length;
+    ta.focus(); ta.setSelectionRange(pos, pos);
+  } else if (alreadyWrapped) {
+    const inner = selected.slice(marker.length, selected.length - marker.length);
+    ta.value = before + inner + after;
+    ta.focus(); ta.setSelectionRange(start, start + inner.length);
+  } else {
+    ta.value = before + marker + selected + marker + after;
+    ta.focus(); ta.setSelectionRange(start + marker.length, end + marker.length);
+  }
+}
+
+(function() {
+  const ta = document.getElementById('an-message');
+  if (!ta) return;
+  ta.addEventListener('keydown', (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (!mod) return;
+    const key = e.key.toLowerCase();
+    if (key === 'b') { e.preventDefault(); wrapAnnounceSelection('**'); }
+    else if (key === 'i') { e.preventDefault(); wrapAnnounceSelection('_'); }
+    else if (key === 'u') { e.preventDefault(); wrapAnnounceSelection('++'); }
+  });
+})();
+
 function escapeHtml(str) {
   return (str || '')
     .replace(/&/g, '&amp;')
@@ -3655,10 +3696,19 @@ function linkifyText(escapedStr) {
   });
 }
 
+// Turns lightweight **bold**, _italic_, ++underline++ markers into real HTML tags.
+// Runs on already-escaped text, before linkifying URLs.
+function applyAnnounceFormatting(escapedStr) {
+  return (escapedStr || '')
+    .replace(/\+\+([^\n]+?)\+\+/g, '<u>$1</u>')
+    .replace(/\*\*([^\n]+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/_([^\n_]+?)_/g, '<em>$1</em>');
+}
+
 // Safely render a plain-text announcement message: escape HTML, then linkify URLs.
 // Pair with `white-space:pre-wrap` on the container to preserve spacing/line breaks exactly.
 function formatAnnounceMessage(raw) {
-  return linkifyText(escapeHtml(raw));
+  return linkifyText(applyAnnounceFormatting(escapeHtml(raw)));
 }
 
 /* ── ANNOUNCEMENTS PAGE ─────────────────────────────────── */
