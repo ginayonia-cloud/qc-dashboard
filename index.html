@@ -1774,20 +1774,27 @@
     </div>
     <div class="form-group">
       <label class="form-label">Message *</label>
-      <div class="rte-wrap">
-        <div class="rte-toolbar" id="rte-toolbar-an">
-          <button type="button" class="rte-btn" data-cmd="bold" data-rte="an-message" title="Bold (Ctrl+B)"><b>B</b></button>
-          <button type="button" class="rte-btn" data-cmd="italic" data-rte="an-message" title="Italic (Ctrl+I)"><i>I</i></button>
-          <button type="button" class="rte-btn" data-cmd="underline" data-rte="an-message" title="Underline (Ctrl+U)"><u>U</u></button>
-        </div>
-        <div class="rte-body form-input" id="an-message" contenteditable="true" data-placeholder="Write the announcement details here..."></div>
-      </div>
+      <textarea class="form-input form-textarea" id="an-message" rows="6" placeholder="Write the announcement details here... (links will become clickable automatically, and spacing/line breaks are preserved exactly as you type them)"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Photos (optional)</label>
+      <input type="file" id="an-photo-input" accept="image/*" multiple style="display:none" onchange="handleAnnouncePhotoFiles(this.files)">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('an-photo-input').click()">🖼️ Add Photos</button>
+      <div id="an-photo-previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
     </div>
     <div class="form-actions">
       <button class="btn btn-secondary" onclick="closeModal('announce')">Cancel</button>
       <button class="btn btn-primary" onclick="saveAnnouncement()">📢 Post Announcement</button>
     </div>
   </div>
+</div>
+
+<!-- Image Lightbox -->
+<div class="modal-overlay" id="modal-lightbox" onclick="closeLightbox(event)" style="z-index:9999">
+  <div style="max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation()">
+    <img id="lightbox-img" src="" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.4)">
+  </div>
+  <div class="modal-close" onclick="closeLightbox(event)" style="position:fixed;top:20px;right:24px;background:rgba(255,255,255,0.15);color:#fff">✕</div>
 </div>
 
 <!-- Calendar Event Modal -->
@@ -2071,7 +2078,7 @@ async function onGlobalSearch() {
     </div>` : '';
   box.innerHTML = `
     <div class="search-ai" id="search-ai-box"><div class="ai-label">🤖 AI Summary</div><div id="search-ai-text">Summarizing…</div></div>
-    ${section('Announcements','📢', matches.announce, ic => a => `<div class="search-item"><span class="search-item-icon">${ic}</span><div><div class="search-item-title">${a.title||'(untitled)'}</div><div class="search-item-meta">${(a.message||'').slice(0,80)} · by ${a.posted_by||'—'}</div></div></div>`)}
+    ${section('Announcements','📢', matches.announce, ic => a => `<div class="search-item"><span class="search-item-icon">${ic}</span><div><div class="search-item-title">${a.title||'(untitled)'}</div><div class="search-item-meta">${escapeHtml((a.message||'').slice(0,80))} · by ${a.posted_by||'—'}</div></div></div>`)}
     ${section('To-Do List','✅', matches.todo, ic => t => `<div class="search-item"><span class="search-item-icon">${ic}</span><div><div class="search-item-title">${t.task_title}</div><div class="search-item-meta">${t.priority||''} · ${t.assigned_person||'—'}</div></div></div>`)}
     ${section('Product Specs','📋', matches.specs, ic => s => `<div class="search-item"><span class="search-item-icon">${ic}</span><div><div class="search-item-title">${s.product_name} <span class="search-item-meta">(${s.revision_number||'—'})</span></div><div class="search-item-meta">${s.summary||''}</div></div></div>`)}
     ${section('Training','📅', matches.training, ic => t => `<div class="search-item"><span class="search-item-icon">${ic}</span><div><div class="search-item-title">${t.training_topic}</div><div class="search-item-meta">${t.employee_name||'—'} · ${t.status||''}</div></div></div>`)}
@@ -2160,8 +2167,8 @@ async function renderNotifPanel() {
   html.push('<div class="notif-group-title">📢 Announcements' + (unreadAnnounce ? ` · <span style="color:var(--green)">${unreadAnnounce} new</span>` : '') + '</div>');
   if (!recentAnnouncements.length) html.push('<div class="notif-empty" style="padding:10px 20px">No announcements yet.</div>');
   else recentAnnouncements.slice(0, 20).forEach(a => {
-    const safeMsg = a.message||'';
-    html.push(`<div class="notif-item announce"><div class="notif-item-title">${a.title||'(untitled)'}</div><div style="font-size:0.8rem;color:var(--text);margin:3px 0 4px">${safeMsg}</div><div class="notif-item-meta">Posted by ${a.posted_by||a.last_updated_by||'—'} · ${fmtDate(a.posted_at||a.last_updated_at)}</div></div>`);
+    const safeMsg = formatAnnounceMessage(a.message||'');
+    html.push(`<div class="notif-item announce"><div class="notif-item-title">${a.title||'(untitled)'}</div><div style="font-size:0.8rem;color:var(--text);margin:3px 0 4px;white-space:pre-wrap;word-break:break-word">${safeMsg}</div><div class="notif-item-meta">Posted by ${a.posted_by||a.last_updated_by||'—'} · ${fmtDate(a.posted_at||a.last_updated_at)}</div></div>`);
   });
 
   if (!isField) {
@@ -2442,7 +2449,7 @@ function closeModal(type) {
   if (type==='todo') { ['td-id','td-title','td-priority','td-assigned','td-deadline'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); rteClear('td-notes'); document.getElementById('modal-todo-title').textContent='Add Task'; clearMentions(); }
   if (type==='specs') { ['sp-id','sp-product','sp-revision','sp-date','sp-approved','sp-link'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); rteClear('sp-summary'); document.getElementById('modal-specs-title').textContent='Add Specification'; }
   if (type==='trials') { ['tr-id','tr-product','tr-date','tr-assigned','tr-link','tr-notes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); document.getElementById('tr-ai-area').style.display='none'; document.getElementById('modal-trials-title').textContent='Add Trial Report'; }
-  if (type==='announce') { const _ant=document.getElementById('an-title'); if(_ant) _ant.value=''; rteClear('an-message'); }
+  if (type==='announce') { const _ant=document.getElementById('an-title'); if(_ant) _ant.value=''; rteClear('an-message'); resetAnnouncePhotos(); }
   if (type==='calevent') { ['ce-id','ce-title','ce-date','ce-end-date','ce-reminder','ce-notes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); const sel=document.getElementById('ce-type'); if(sel) sel.value='event'; document.getElementById('modal-calevent-title').textContent='📆 Add Event'; }
 }
 
@@ -2463,6 +2470,7 @@ async function saveAnnouncement() {
   const now = new Date().toISOString();
   const row = {
     title, message,
+    photos: _anPhotos.length ? JSON.stringify(_anPhotos) : null,
     posted_by: currentUser,
     posted_at: now,
     last_updated_by: currentUser,
@@ -2471,6 +2479,7 @@ async function saveAnnouncement() {
   const saved = await dbInsert('announcements', row);
   if (saved) {
     showToast('📢 Announcement posted to everyone!', 'success');
+    resetAnnouncePhotos();
     closeModal('announce');
     _allAnnouncements.unshift(saved);
     renderAnnouncePage();
@@ -3228,7 +3237,7 @@ loadTrainingPage = async function() {
 
 /* ── RICH TEXT EDITOR ENGINE ────────────────────────────── */
 (function initRTE() {
-  const RTE_IDS = ['an-message', 'td-notes', 'sp-summary'];
+  const RTE_IDS = ['td-notes', 'sp-summary'];
 
   // Toolbar button clicks
   document.addEventListener('click', e => {
@@ -3264,7 +3273,7 @@ loadTrainingPage = async function() {
 })();
 
 function updateRteToolbar(rteId) {
-  const toolbarMap = { 'an-message': 'rte-toolbar-an', 'td-notes': 'rte-toolbar-td', 'sp-summary': 'rte-toolbar-sp' };
+  const toolbarMap = { 'td-notes': 'rte-toolbar-td', 'sp-summary': 'rte-toolbar-sp' };
   const toolbar = document.getElementById(toolbarMap[rteId]);
   if (!toolbar) return;
   toolbar.querySelectorAll('.rte-btn[data-cmd]').forEach(btn => {
@@ -3539,6 +3548,119 @@ async function deleteCalEvent(evId) {
   loadCalendarPage();
 }
 
+/* ── ANNOUNCEMENT PHOTOS ────────────────────────────────── */
+let _anPhotos = []; // array of data-URL strings for the photo currently being composed
+
+function resetAnnouncePhotos() {
+  _anPhotos = [];
+  const input = document.getElementById('an-photo-input');
+  if (input) input.value = '';
+  renderAnnouncePhotoPreviews();
+}
+
+// Downscale + compress an image file client-side so rows stay small in the DB
+function resizeImageFile(file, maxDim = 1400, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleAnnouncePhotoFiles(fileList) {
+  const files = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  if (_anPhotos.length + files.length > 6) {
+    showToast('You can attach up to 6 photos per announcement', 'error');
+  }
+  const room = Math.max(0, 6 - _anPhotos.length);
+  for (const file of files.slice(0, room)) {
+    try {
+      const dataUrl = await resizeImageFile(file);
+      _anPhotos.push(dataUrl);
+    } catch (e) { console.error('Photo processing failed', e); }
+  }
+  renderAnnouncePhotoPreviews();
+  const input = document.getElementById('an-photo-input');
+  if (input) input.value = '';
+}
+
+function removeAnnouncePhoto(idx) {
+  _anPhotos.splice(idx, 1);
+  renderAnnouncePhotoPreviews();
+}
+
+function renderAnnouncePhotoPreviews() {
+  const wrap = document.getElementById('an-photo-previews');
+  if (!wrap) return;
+  wrap.innerHTML = _anPhotos.map((src, i) => `
+    <div style="position:relative;width:74px;height:74px">
+      <img src="${src}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+      <button type="button" onclick="removeAnnouncePhoto(${i})" title="Remove"
+        style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;font-size:0.65rem;line-height:1;border:2px solid #fff;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('modal-lightbox').classList.add('open');
+}
+
+function closeLightbox(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('modal-lightbox').classList.remove('open');
+  document.getElementById('lightbox-img').src = '';
+}
+
+function parseAnnouncePhotos(a) {
+  if (!a || !a.photos) return [];
+  if (Array.isArray(a.photos)) return a.photos;
+  try { const p = JSON.parse(a.photos); return Array.isArray(p) ? p : []; } catch (e) { return []; }
+}
+
+function escapeHtml(str) {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Turns bare URLs into clickable links. Operates on already-escaped text.
+function linkifyText(escapedStr) {
+  const urlRegex = /((?:https?:\/\/|www\.)[^\s<]+)/gi;
+  return (escapedStr || '').replace(urlRegex, (match) => {
+    // Don't swallow trailing punctuation into the link
+    let trail = '';
+    const trailMatch = match.match(/[).,!?;:]+$/);
+    if (trailMatch) { trail = trailMatch[0]; match = match.slice(0, -trail.length); }
+    const href = /^https?:\/\//i.test(match) ? match : 'https://' + match;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color:var(--blue-600);text-decoration:underline">${match}</a>${trail}`;
+  });
+}
+
+// Safely render a plain-text announcement message: escape HTML, then linkify URLs.
+// Pair with `white-space:pre-wrap` on the container to preserve spacing/line breaks exactly.
+function formatAnnounceMessage(raw) {
+  return linkifyText(escapeHtml(raw));
+}
+
 /* ── ANNOUNCEMENTS PAGE ─────────────────────────────────── */
 let _allAnnouncements = [];
 
@@ -3568,6 +3690,11 @@ function renderAnnouncePage() {
   wrap.innerHTML = sorted.map(a => {
     const safeMsg = a.message||'';
     const typeColor = {'urgent':'#fee2e2','training':'#eff6ff','event':'#f5f3ff','todo':'#fffbeb'}['announce']||'#f0fdf4';
+    const photos = parseAnnouncePhotos(a);
+    const photosHtml = photos.length ? `
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+        ${photos.map(src => `<img src="${src}" onclick="openLightbox('${src.replace(/'/g,"\\'")}')" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer" alt="Announcement photo">`).join('')}
+      </div>` : '';
     return `
     <div style="border:1px solid var(--border);border-left:4px solid var(--green);border-radius:10px;padding:14px;background:#f0fdf4" id="announce-card-${a.id}">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
@@ -3578,7 +3705,8 @@ function renderAnnouncePage() {
           ${isOfficer ? `<button onclick="deleteAnnouncement(${a.id})" title="Delete announcement" style="background:none;border:1px solid #fca5a5;color:#ef4444;border-radius:6px;padding:3px 7px;font-size:0.75rem;cursor:pointer;line-height:1;transition:all 0.15s" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">🗑</button>` : ''}
         </div>
       </div>
-      <div style="margin-top:6px;color:var(--text-2);line-height:1.6">${safeMsg}</div>
+      <div style="margin-top:6px;color:var(--text-2);line-height:1.6;white-space:pre-wrap;word-break:break-word">${formatAnnounceMessage(safeMsg)}</div>
+      ${photosHtml}
       <div id="announce-summary-${a.id}" style="display:none;margin-top:10px;background:#fff;border:1.5px solid #a855f7;border-radius:8px;padding:10px 14px"></div>
       <div style="margin-top:8px;font-size:0.8rem;color:var(--text-muted)">Posted by <strong>${a.posted_by||'—'}</strong></div>
     </div>`;
