@@ -793,6 +793,12 @@
       display: none; align-items: center; justify-content: center; z-index: 9999;
     }
     #pw-overlay.active { display: flex; }
+    #fr-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.65);
+      backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center; z-index: 9999;
+    }
+    #fr-overlay.active { display: flex; }
     .pw-box {
       background: #fff; border-radius: 16px; padding: 28px 28px 22px;
       width: 340px; box-shadow: 0 24px 60px rgba(0,0,0,0.25);
@@ -1111,7 +1117,7 @@
   </div>
   <div class="profile-label" style="margin-top:36px">QC Field</div>
   <div class="profile-grid" style="justify-content:center">
-    <div class="profile-card" onclick="selectProfile('QC Field','field','#64748b')">
+    <div class="profile-card" onclick="enterFieldFlow()">
       <div class="profile-avatar" style="background:linear-gradient(135deg,#64748b,#94a3b8)">👷</div>
       <div class="profile-name">QC Field</div>
       <div class="profile-role">View only access</div>
@@ -1129,6 +1135,20 @@
     <div class="pw-actions">
       <button class="btn btn-secondary" onclick="cancelPassword()">Cancel</button>
       <button class="btn btn-primary" onclick="submitPassword()">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Name registration gate for QC Field / other users -->
+<div id="fr-overlay">
+  <div class="pw-box">
+    <h3>Welcome — What's your name?</h3>
+    <p>First time here? Enter your name once and we'll remember you on this device.</p>
+    <input id="fr-input" type="text" class="pw-input" placeholder="Your full name" autocomplete="off" maxlength="40" />
+    <div id="fr-error" class="pw-error"></div>
+    <div class="pw-actions">
+      <button class="btn btn-secondary" onclick="cancelFieldRegister()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitFieldRegister()">Continue</button>
     </div>
   </div>
 </div>
@@ -1176,6 +1196,9 @@
       </div>
       <div class="nav-item officer-only" onclick="showPage('calendar',this)">
         <span class="nav-icon">📆</span> Calendar
+      </div>
+      <div class="nav-item officer-only" onclick="showPage('access',this)">
+        <span class="nav-icon">📊</span> Access Report
       </div>
     </nav>
     <div class="sidebar-footer">
@@ -1500,6 +1523,59 @@
           </div>
         </div>
       </div>
+      <!-- ── ACCESS REPORT PAGE (QC Officer only) ──────────────── -->
+      <div id="page-access" class="page">
+        <div class="page-header" style="flex-wrap:wrap;gap:12px">
+          <div style="flex:1;min-width:180px">
+            <h1>📊 Access Report</h1>
+            <p>Weekly summary of user activity. Visible only to QC Officers.</p>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card blue">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value" id="access-stat-users">—</div>
+            <div class="stat-label">Registered Users</div>
+            <div class="stat-sub">Officers + QC Field</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-icon">📈</div>
+            <div class="stat-value" id="access-stat-week">—</div>
+            <div class="stat-label">Accesses This Period</div>
+            <div class="stat-sub">See week selector below</div>
+          </div>
+          <div class="stat-card amber">
+            <div class="stat-icon">🗂️</div>
+            <div class="stat-value" id="access-stat-total">—</div>
+            <div class="stat-label">Total Accesses (All-Time)</div>
+            <div class="stat-sub">Since tracking began</div>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+            <div class="card-title" style="margin:0">Per-User Breakdown</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn btn-secondary btn-sm" onclick="accessReportNav(-1)">&#8249; Prev Week</button>
+              <span id="access-week-label" style="font-weight:700;color:var(--blue-800);min-width:170px;text-align:center;font-size:0.85rem;white-space:nowrap"></span>
+              <button class="btn btn-secondary btn-sm" onclick="accessReportNav(1)">Next Week &#8250;</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Accesses This Week</th>
+                  <th>Total Accesses</th>
+                  <th>Last Access</th>
+                </tr>
+              </thead>
+              <tbody id="access-report-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       <!-- ── SOP PAGE (hidden, kept for Supabase compat) ──────── -->
       <div id="page-sop" class="page" style="display:none!important"></div>
 
@@ -1762,12 +1838,13 @@
 <div class="modal-overlay" id="modal-announce">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">📢 Post Announcement</div>
+      <div class="modal-title" id="modal-announce-title">📢 Post Announcement</div>
       <div class="modal-close" onclick="closeModal('announce')">✕</div>
     </div>
     <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px">
       This message will appear in the Notification Center for every QC Officer and QC Field user, and will be searchable from the top bar.
     </div>
+    <input type="hidden" id="an-id">
     <div class="form-group">
       <label class="form-label">Title *</label>
       <input class="form-input" id="an-title" placeholder="e.g. Audit on Friday — please prepare batch records" maxlength="120">
@@ -1882,7 +1959,8 @@ let demoData = {
   product_specifications: [],
   trial_reports: [],
   sop_documents: [],
-  announcements: []
+  announcements: [],
+  access_logs: []
 };
 
 function initSupabase() {
@@ -1990,7 +2068,54 @@ function submitPassword() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('pw-overlay').classList.contains('active')) submitPassword();
   if (e.key === 'Escape' && document.getElementById('pw-overlay').classList.contains('active')) cancelPassword();
+  if (e.key === 'Enter' && document.getElementById('fr-overlay').classList.contains('active')) submitFieldRegister();
+  if (e.key === 'Escape' && document.getElementById('fr-overlay').classList.contains('active')) cancelFieldRegister();
 });
+
+/* ── FIELD / NON-OFFICER REGISTRATION (independent of the officer profile system) ── */
+const FIELD_COLOR_PALETTE = ['#64748b','#0ea5e9','#f97316','#10b981','#8b5cf6','#ec4899','#eab308','#14b8a6'];
+function getFieldColor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return FIELD_COLOR_PALETTE[hash % FIELD_COLOR_PALETTE.length];
+}
+
+function enterFieldFlow() {
+  const raw = localStorage.getItem('qcboard_field_user');
+  if (raw) {
+    try {
+      const v = JSON.parse(raw);
+      if (v && v.name) { enterApp(v.name, 'field', getFieldColor(v.name)); return; }
+    } catch (e) {}
+  }
+  openFieldRegisterModal();
+}
+
+function openFieldRegisterModal() {
+  document.getElementById('fr-input').value = '';
+  document.getElementById('fr-error').textContent = '';
+  document.getElementById('fr-overlay').classList.add('active');
+  setTimeout(() => document.getElementById('fr-input').focus(), 50);
+}
+
+function cancelFieldRegister() {
+  document.getElementById('fr-overlay').classList.remove('active');
+}
+
+function submitFieldRegister() {
+  const name = document.getElementById('fr-input').value.trim();
+  if (!name) { document.getElementById('fr-error').textContent = 'Please enter your name'; return; }
+  if (name.length > 40) { document.getElementById('fr-error').textContent = 'Name is too long'; return; }
+  localStorage.setItem('qcboard_field_user', JSON.stringify({ name }));
+  document.getElementById('fr-overlay').classList.remove('active');
+  enterApp(name, 'field', getFieldColor(name));
+}
+
+// Records one access event per login/session for both officers and registered users.
+async function logAccess(name, role) {
+  try { await dbInsert('access_logs', { user_name: name, role: role, created_at: new Date().toISOString() }); }
+  catch (e) { console.error('logAccess failed', e); }
+}
 
 function enterApp(name, role, color) {
   currentUser = name; currentRole = role;
@@ -2000,6 +2125,7 @@ function enterApp(name, role, color) {
   document.getElementById('app').classList.add('active');
   updateSidebarUser(name, color || profileColors[name] || '#2563eb', role);
   initSupabase();
+  logAccess(name, role);
   loadDashboard();
   updateTopbarDate();
 }
@@ -2028,7 +2154,17 @@ window.addEventListener('DOMContentLoaded', () => {
       const v = JSON.parse(raw);
       if (v && v.name && profileColors[v.name]) {
         enterApp(v.name, v.role || profileRoles[v.name], profileColors[v.name]);
+        updateTopbarDate();
+        return;
       }
+    } catch {}
+  }
+  // Registered QC Field / non-officer users: identified independently of the officer profile system
+  const fraw = localStorage.getItem('qcboard_field_user');
+  if (fraw) {
+    try {
+      const v = JSON.parse(fraw);
+      if (v && v.name) { enterApp(v.name, 'field', getFieldColor(v.name)); }
     } catch {}
   }
   updateTopbarDate();
@@ -2229,10 +2365,86 @@ function updateTopbarDate() {
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    NAVIGATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ACCESS REPORT (QC Officer only)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+let _accessLogs = [];
+let _accessReportWeekOffset = 0; // 0 = current week, -1 = last week, etc.
+
+function getWeekRange(offset) {
+  const now = new Date();
+  const day = now.getDay(); // 0 = Sun .. 6 = Sat
+  const diffToMonday = (day === 0 ? -6 : 1 - day);
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() + diffToMonday + offset * 7);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return { start: monday, end: sunday };
+}
+
+async function loadAccessReportPage() {
+  if (currentRole !== 'officer') { showPage('dashboard'); return; } // defense-in-depth: officer-only report
+  _accessReportWeekOffset = 0;
+  _accessLogs = await dbGet('access_logs');
+  renderAccessReport();
+}
+
+function accessReportNav(delta) {
+  _accessReportWeekOffset = Math.min(0, _accessReportWeekOffset + delta); // can't navigate into the future
+  renderAccessReport();
+}
+
+function renderAccessReport() {
+  const { start, end } = getWeekRange(_accessReportWeekOffset);
+  const label = document.getElementById('access-week-label');
+  if (label) label.textContent = `${start.toLocaleDateString()} – ${end.toLocaleDateString()}`;
+
+  const weekLogs = _accessLogs.filter(l => {
+    const t = new Date(l.created_at).getTime();
+    return t >= start.getTime() && t <= end.getTime();
+  });
+
+  const byUser = {};
+  _accessLogs.forEach(l => {
+    const key = l.user_name || 'Unknown';
+    if (!byUser[key]) byUser[key] = { name: key, role: l.role, total: 0, week: 0, last: null };
+    byUser[key].total++;
+    if (!byUser[key].last || new Date(l.created_at) > new Date(byUser[key].last)) byUser[key].last = l.created_at;
+  });
+  weekLogs.forEach(l => {
+    const key = l.user_name || 'Unknown';
+    if (byUser[key]) byUser[key].week++;
+  });
+
+  const rows = Object.values(byUser).sort((a, b) => b.week - a.week || b.total - a.total);
+
+  document.getElementById('access-stat-users').textContent = rows.length;
+  document.getElementById('access-stat-week').textContent = weekLogs.length;
+  document.getElementById('access-stat-total').textContent = _accessLogs.length;
+
+  const tbody = document.getElementById('access-report-tbody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No access recorded yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td style="font-weight:600">${escapeHtml(r.name)}</td>
+      <td>${r.role === 'officer' ? 'QC Officer' : 'QC Field'}</td>
+      <td>${r.week}</td>
+      <td>${r.total}</td>
+      <td>${r.last ? new Date(r.last).toLocaleString() : '—'}</td>
+    </tr>`).join('');
+}
+
 const pageNames = {
   dashboard:'Dashboard', training:'Training Schedule',
   todo:'To-Do List', specs:'Product Specifications',
-  announce:'Announcements', calendar:'Calendar'
+  announce:'Announcements', calendar:'Calendar',
+  access:'Access Report'
 };
 
 function showPage(name, el) {
@@ -2248,6 +2460,7 @@ function showPage(name, el) {
   else if (name === 'specs') loadSpecsPage();
   else if (name === 'announce') loadAnnouncePage();
   else if (name === 'calendar') loadCalendarPage();
+  else if (name === 'access') loadAccessReportPage();
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2262,6 +2475,7 @@ async function dbGet(table) {
     product_specifications: 'last_updated_at',
     announcements: 'last_updated_at',
     trial_reports: 'last_updated_at',
+    access_logs: 'created_at',
   };
   const orderCol = orderMap[table] || 'id';
   const { data, error } = await db.from(table).select('*').order(orderCol, { ascending: false });
@@ -2457,7 +2671,7 @@ function closeModal(type) {
   if (type==='todo') { ['td-id','td-title','td-priority','td-assigned','td-deadline'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); rteClear('td-notes'); document.getElementById('modal-todo-title').textContent='Add Task'; clearMentions(); }
   if (type==='specs') { ['sp-id','sp-product','sp-revision','sp-date','sp-approved','sp-link'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); rteClear('sp-summary'); document.getElementById('modal-specs-title').textContent='Add Specification'; }
   if (type==='trials') { ['tr-id','tr-product','tr-date','tr-assigned','tr-link','tr-notes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); document.getElementById('tr-ai-area').style.display='none'; document.getElementById('modal-trials-title').textContent='Add Trial Report'; }
-  if (type==='announce') { const _ant=document.getElementById('an-title'); if(_ant) _ant.value=''; rteClear('an-message'); resetAnnouncePhotos(); }
+  if (type==='announce') { const _ant=document.getElementById('an-title'); if(_ant) _ant.value=''; rteClear('an-message'); resetAnnouncePhotos(); document.getElementById('an-id').value=''; document.getElementById('modal-announce-title').textContent='📢 Post Announcement'; }
   if (type==='calevent') { ['ce-id','ce-title','ce-date','ce-end-date','ce-reminder','ce-notes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); const sel=document.getElementById('ce-type'); if(sel) sel.value='event'; document.getElementById('modal-calevent-title').textContent='📆 Add Event'; }
 }
 
@@ -2472,13 +2686,30 @@ function openAnnounceModal() {
 
 async function saveAnnouncement() {
   if (currentRole !== 'officer') { showToast('Only QC Officers can post announcements', 'error'); return; }
+  const id = document.getElementById('an-id').value;
   const title = document.getElementById('an-title').value.trim();
   const message = normalizeLiteralEscapes(rteGet('an-message').trim());
   if (!title || !message) { showToast('Title and message are required', 'error'); return; }
   const now = new Date().toISOString();
+  const photos = _anPhotos.length ? JSON.stringify(_anPhotos) : null;
+
+  if (id) {
+    const row = { title, message, photos, last_updated_by: currentUser, last_updated_at: now };
+    const ok = await dbUpdate('announcements', parseInt(id), row);
+    if (ok) {
+      showToast('Announcement updated!', 'success');
+      resetAnnouncePhotos();
+      closeModal('announce');
+      const idx = _allAnnouncements.findIndex(a => a.id === parseInt(id));
+      if (idx > -1) _allAnnouncements[idx] = { ..._allAnnouncements[idx], ...row };
+      renderAnnouncePage();
+      renderNotifPanel();
+    }
+    return;
+  }
+
   const row = {
-    title, message,
-    photos: _anPhotos.length ? JSON.stringify(_anPhotos) : null,
+    title, message, photos,
     posted_by: currentUser,
     posted_at: now,
     last_updated_by: currentUser,
@@ -2494,6 +2725,20 @@ async function saveAnnouncement() {
     renderNotifPanel();
     document.getElementById('bell-dot').classList.add('active');
   }
+}
+
+function editAnnouncement(id) {
+  if (currentRole !== 'officer') { showToast('Only QC Officers can edit announcements', 'error'); return; }
+  const a = _allAnnouncements.find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('an-id').value = a.id;
+  document.getElementById('an-title').value = a.title || '';
+  rteSet('an-message', normalizeLiteralEscapes(a.message || ''));
+  _anPhotos = parseAnnouncePhotos(a).slice();
+  renderAnnouncePhotoPreviews();
+  document.getElementById('modal-announce-title').textContent = '✏️ Edit Announcement';
+  openModal('announce');
+  setTimeout(() => { const el = document.getElementById('an-title'); if (el) el.focus(); }, 50);
 }
 
 function toggleEmpChip(el) {
@@ -3769,6 +4014,7 @@ function renderAnnouncePage() {
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <div style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap">${new Date(a.posted_at||a.last_updated_at||Date.now()).toLocaleString()}</div>
           <button onclick="summarizeAnnouncement(${a.id})" title="AI Summary" style="background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:#fff;border-radius:6px;padding:3px 8px;font-size:0.72rem;cursor:pointer;line-height:1.4;display:inline-flex;align-items:center;gap:3px;font-weight:600" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">✨ AI Summary</button>
+          ${isOfficer ? `<button onclick="editAnnouncement(${a.id})" title="Edit announcement" style="background:none;border:1px solid var(--blue-300, #93c5fd);color:var(--blue-600, #2563eb);border-radius:6px;padding:3px 7px;font-size:0.75rem;cursor:pointer;line-height:1;transition:all 0.15s" onmouseover="this.style.background='var(--blue-50, #eff6ff)'" onmouseout="this.style.background='none'">✏️</button>` : ''}
           ${isOfficer ? `<button onclick="deleteAnnouncement(${a.id})" title="Delete announcement" style="background:none;border:1px solid #fca5a5;color:#ef4444;border-radius:6px;padding:3px 7px;font-size:0.75rem;cursor:pointer;line-height:1;transition:all 0.15s" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">🗑</button>` : ''}
         </div>
       </div>
