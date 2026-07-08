@@ -2152,7 +2152,10 @@ window.addEventListener('DOMContentLoaded', () => {
   if (raw) {
     try {
       const v = JSON.parse(raw);
-      if (v && v.name && profileColors[v.name]) {
+      // 'QC Field' is a legacy generic identity from before per-user registration existed — never auto-login with it.
+      if (v && v.name === 'QC Field') {
+        localStorage.removeItem('qcboard_user');
+      } else if (v && v.name && profileColors[v.name]) {
         enterApp(v.name, v.role || profileRoles[v.name], profileColors[v.name]);
         updateTopbarDate();
         return;
@@ -2387,7 +2390,9 @@ function getWeekRange(offset) {
 async function loadAccessReportPage() {
   if (currentRole !== 'officer') { showPage('dashboard'); return; } // defense-in-depth: officer-only report
   _accessReportWeekOffset = 0;
-  _accessLogs = await dbGet('access_logs');
+  const raw = await dbGet('access_logs');
+  // Filter out legacy generic "QC Field" entries logged before per-user registration existed
+  _accessLogs = raw.filter(l => !(l.user_name === 'QC Field' && l.role === 'field'));
   renderAccessReport();
 }
 
