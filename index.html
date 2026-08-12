@@ -1194,6 +1194,9 @@
       <div class="nav-item" onclick="showPage('specs',this)">
         <span class="nav-icon">📋</span> Product Specs
       </div>
+      <div class="nav-item" onclick="showPage('calibration',this)">
+        <span class="nav-icon">⚖️</span> Calibration
+      </div>
       <div class="nav-item officer-only" onclick="showPage('calendar',this)">
         <span class="nav-icon">📆</span> Calendar
       </div>
@@ -1478,6 +1481,144 @@
           <div id="specs-empty" class="empty-state" style="display:none">
             <div class="empty-icon">📋</div>
             <p>No product specifications yet. Add your first spec!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CALIBRATION CALCULATION PAGE ──────────────────────────────── -->
+      <div id="page-calibration" class="page">
+        <div class="page-header">
+          <div>
+            <h1>⚖️ Calibration Calculation</h1>
+            <p>Enter measurement results and let the system calculate correction, uncertainty, and calibration status automatically.</p>
+          </div>
+          <button class="btn btn-secondary officer-only" onclick="resetCalibForm()">+ New Calibration</button>
+        </div>
+
+        <!-- Entry form (QC Officers only — QC Field can view saved results below) -->
+        <div class="officer-only">
+          <!-- Equipment / Input Data -->
+          <div class="card" style="margin-bottom:16px">
+            <h3 style="margin-bottom:14px;font-size:0.95rem;color:var(--blue-800)">Equipment &amp; Input Data</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Calibration Date *</label>
+                <input class="form-input" type="date" id="calib-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Location / Department *</label>
+                <input class="form-input" id="calib-location" placeholder="e.g. Central Kitchen">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Equipment ID *</label>
+                <input class="form-input" id="calib-equip-id" placeholder="e.g. PGS-01">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Equipment Name *</label>
+                <input class="form-input" id="calib-equip-name" placeholder="e.g. Digital Scale">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Resolution / Readability *</label>
+                <input class="form-input" type="number" step="any" id="calib-resolution" placeholder="e.g. 0.1" oninput="onCalibResolutionChange()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tolerance</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input class="form-input" type="number" step="any" id="calib-tolerance" placeholder="Auto = 5 × resolution" disabled oninput="updateCalibSummary()">
+                </div>
+                <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:0.78rem;color:var(--text-muted);font-weight:600;cursor:pointer">
+                  <input type="checkbox" id="calib-tolerance-auto" checked onchange="onCalibToleranceAutoToggle()"> Auto-calculate (5 × resolution)
+                </label>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="max-width:260px">
+                <label class="form-label">Number of Measurements / Replicates</label>
+                <input class="form-input" type="number" min="1" max="50" id="calib-num-measurements" value="3" onchange="setCalibRowCount(this.value)">
+              </div>
+            </div>
+          </div>
+
+          <!-- Measurement Table -->
+          <div class="card" style="margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+              <h3 style="font-size:0.95rem;color:var(--blue-800)">Measurement Data</h3>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-secondary btn-sm" onclick="addCalibRow()">+ Add Measurement</button>
+                <button class="btn btn-secondary btn-sm" onclick="removeCalibRow()">− Remove Measurement</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:70px">Replicate</th>
+                    <th>Master Measurement Result</th>
+                    <th>Equipment Measurement Result</th>
+                    <th>Correction Value</th>
+                    <th style="width:50px"></th>
+                  </tr>
+                </thead>
+                <tbody id="calib-measure-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="card" style="margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="updateCalibSummary()">Calculate Calibration</button>
+            <button class="btn btn-secondary" onclick="resetCalibForm()">Reset</button>
+            <button class="btn btn-primary" onclick="saveCalibResult()">Save Result</button>
+            <button class="btn btn-secondary" onclick="printCalibResult()">Print / Export</button>
+          </div>
+        </div>
+
+        <!-- Calibration Summary -->
+        <div class="card" style="margin-bottom:16px">
+          <h3 style="margin-bottom:14px;font-size:0.95rem;color:var(--blue-800)">Calibration Result</h3>
+          <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+            <div><div class="stat-label">Resolution</div><div class="stat-value" id="calib-sum-resolution" style="font-size:1.1rem">—</div></div>
+            <div><div class="stat-label">Tolerance</div><div class="stat-value" id="calib-sum-tolerance" style="font-size:1.1rem">—</div></div>
+            <div><div class="stat-label">No. of Measurements</div><div class="stat-value" id="calib-sum-n" style="font-size:1.1rem">—</div></div>
+            <div><div class="stat-label">Avg Correction Value</div><div class="stat-value" id="calib-sum-avg" style="font-size:1.1rem">—</div></div>
+            <div><div class="stat-label">Standard Deviation</div><div class="stat-value" id="calib-sum-std" style="font-size:1.1rem">—</div></div>
+            <div><div class="stat-label">Uncertainty Value</div><div class="stat-value" id="calib-sum-unc" style="font-size:1.1rem">—</div></div>
+            <div><div class="stat-label">Status</div><div id="calib-sum-status" style="margin-top:4px">—</div></div>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="page-header" style="margin-bottom:10px">
+          <div><h1 style="font-size:1.05rem">Calibration History</h1></div>
+        </div>
+        <div class="filter-bar">
+          <input class="filter-input" type="text" id="calib-history-search" placeholder="🔍 Search equipment ID or name..." oninput="renderCalibHistoryTable()">
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Equipment ID</th>
+                  <th>Equipment Name</th>
+                  <th>Location</th>
+                  <th>Uncertainty</th>
+                  <th>Tolerance</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="calib-history-tbody"></tbody>
+            </table>
+          </div>
+          <div id="calib-history-empty" class="empty-state" style="display:none">
+            <div class="empty-icon">⚖️</div>
+            <p>No calibration results saved yet.</p>
           </div>
         </div>
       </div>
@@ -1960,7 +2101,8 @@ let demoData = {
   trial_reports: [],
   sop_documents: [],
   announcements: [],
-  access_logs: []
+  access_logs: [],
+  calibration_results: []
 };
 
 function initSupabase() {
@@ -2449,7 +2591,7 @@ const pageNames = {
   dashboard:'Dashboard', training:'Training Schedule',
   todo:'To-Do List', specs:'Product Specifications',
   announce:'Announcements', calendar:'Calendar',
-  access:'Access Report'
+  access:'Access Report', calibration:'Calibration Calculation'
 };
 
 function showPage(name, el) {
@@ -2463,6 +2605,7 @@ function showPage(name, el) {
   else if (name === 'training') loadTrainingPage();
   else if (name === 'todo') loadTodoPage();
   else if (name === 'specs') loadSpecsPage();
+  else if (name === 'calibration') loadCalibrationPage();
   else if (name === 'announce') loadAnnouncePage();
   else if (name === 'calendar') loadCalendarPage();
   else if (name === 'access') loadAccessReportPage();
@@ -2481,6 +2624,7 @@ async function dbGet(table) {
     announcements: 'last_updated_at',
     trial_reports: 'last_updated_at',
     access_logs: 'created_at',
+    calibration_results: 'last_updated_at',
   };
   const orderCol = orderMap[table] || 'id';
   const { data, error } = await db.from(table).select('*').order(orderCol, { ascending: false });
@@ -2977,6 +3121,374 @@ async function deleteSpec(id) {
   if (!confirm('Delete this specification?')) return;
   await dbDelete('product_specifications', id); showToast('Deleted!','success');
   loadSpecsPage(); loadDashboard();
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CALIBRATION CALCULATION
+   Uncertainty = sample standard deviation of correction values / √n
+   (matches the reference Excel: n=3, avg correction=0.20, std dev=0.10
+    → uncertainty = 0.10/√3 ≈ 0.06). Status: VALID when uncertainty < tolerance.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+let calibResults = [];
+let calibMeasurements = [];
+let calibEditId = null;
+
+function getCalibDecimals(resVal) {
+  const s = String(resVal == null ? '' : resVal).trim();
+  if (!s || isNaN(parseFloat(s))) return 2;
+  const dot = s.indexOf('.');
+  return dot === -1 ? 0 : Math.min(6, s.length - dot - 1);
+}
+
+function fmtCalibNum(n, decimals) {
+  if (n === null || n === undefined || isNaN(n)) return '-';
+  return Number(n).toFixed(decimals);
+}
+
+async function loadCalibrationPage() {
+  calibResults = await dbGet('calibration_results');
+  renderCalibHistoryTable();
+  if (!calibMeasurements.length) resetCalibForm(false);
+  else { renderCalibMeasurementTable(); updateCalibSummary(); }
+}
+
+function resetCalibForm(clearId = true) {
+  if (clearId) calibEditId = null;
+  ['calib-date','calib-location','calib-equip-id','calib-equip-name','calib-resolution','calib-tolerance'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const auto = document.getElementById('calib-tolerance-auto');
+  if (auto) auto.checked = true;
+  const tolInput = document.getElementById('calib-tolerance');
+  if (tolInput) tolInput.disabled = true;
+  document.getElementById('calib-num-measurements').value = 3;
+  calibMeasurements = [{master:'',equipment:''},{master:'',equipment:''},{master:'',equipment:''}];
+  renderCalibMeasurementTable();
+  updateCalibSummary();
+}
+
+function setCalibRowCount(n) {
+  n = Math.max(1, Math.min(50, parseInt(n) || 1));
+  while (calibMeasurements.length < n) calibMeasurements.push({master:'',equipment:''});
+  while (calibMeasurements.length > n) calibMeasurements.pop();
+  document.getElementById('calib-num-measurements').value = calibMeasurements.length;
+  renderCalibMeasurementTable();
+  updateCalibSummary();
+}
+
+function addCalibRow() {
+  calibMeasurements.push({master:'',equipment:''});
+  document.getElementById('calib-num-measurements').value = calibMeasurements.length;
+  renderCalibMeasurementTable();
+  updateCalibSummary();
+}
+
+function removeCalibRow() {
+  if (calibMeasurements.length <= 1) { showToast('At least one measurement row is required','error'); return; }
+  calibMeasurements.pop();
+  document.getElementById('calib-num-measurements').value = calibMeasurements.length;
+  renderCalibMeasurementTable();
+  updateCalibSummary();
+}
+
+function removeCalibRowAt(i) {
+  if (calibMeasurements.length <= 1) { showToast('At least one measurement row is required','error'); return; }
+  calibMeasurements.splice(i,1);
+  document.getElementById('calib-num-measurements').value = calibMeasurements.length;
+  renderCalibMeasurementTable();
+  updateCalibSummary();
+}
+
+function onCalibCellInput(i, field, val) {
+  calibMeasurements[i][field] = val;
+  updateCalibSummary();
+}
+
+function onCalibResolutionChange() {
+  const auto = document.getElementById('calib-tolerance-auto');
+  if (auto && auto.checked) updateCalibSummary();
+  else updateCalibSummary();
+}
+
+function onCalibToleranceAutoToggle() {
+  const auto = document.getElementById('calib-tolerance-auto').checked;
+  document.getElementById('calib-tolerance').disabled = auto;
+  updateCalibSummary();
+}
+
+function renderCalibMeasurementTable() {
+  const tbody = document.getElementById('calib-measure-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = calibMeasurements.map((m,i)=>`
+    <tr>
+      <td class="td-muted">${i+1}</td>
+      <td><input type="number" step="any" class="form-input" value="${m.master ?? ''}" placeholder="e.g. 200" oninput="onCalibCellInput(${i},'master',this.value)"></td>
+      <td><input type="number" step="any" class="form-input" value="${m.equipment ?? ''}" placeholder="Enter reading" oninput="onCalibCellInput(${i},'equipment',this.value)"></td>
+      <td class="td-muted" id="calib-corr-${i}">-</td>
+      <td class="officer-only"><button class="btn btn-danger btn-sm" onclick="removeCalibRowAt(${i})" title="Remove row">🗑</button></td>
+    </tr>`).join('');
+}
+
+function updateCalibSummary() {
+  const resRaw = document.getElementById('calib-resolution').value;
+  const resolution = parseFloat(resRaw);
+  const decimals = getCalibDecimals(resRaw);
+
+  const autoTol = document.getElementById('calib-tolerance-auto').checked;
+  const tolInput = document.getElementById('calib-tolerance');
+  let tolerance;
+  if (autoTol) {
+    tolerance = isNaN(resolution) ? NaN : resolution * 5;
+    tolInput.value = isNaN(tolerance) ? '' : tolerance.toFixed(decimals);
+    tolInput.disabled = true;
+  } else {
+    tolInput.disabled = false;
+    tolerance = parseFloat(tolInput.value);
+  }
+
+  // Correction values (only rows with both numeric master & equipment count)
+  const valid = [];
+  calibMeasurements.forEach((m,i) => {
+    const master = parseFloat(m.master);
+    const equip = parseFloat(m.equipment);
+    const cell = document.getElementById('calib-corr-'+i);
+    if (!isNaN(master) && !isNaN(equip)) {
+      const corr = master - equip;
+      valid.push(corr);
+      if (cell) cell.textContent = fmtCalibNum(corr, decimals);
+    } else {
+      if (cell) cell.textContent = '-';
+    }
+  });
+
+  const n = valid.length;
+  let avg = null, std = null, unc = null, status = null;
+  if (n > 0) avg = valid.reduce((a,b)=>a+b,0) / n;
+  if (n > 1) {
+    const sumSq = valid.reduce((a,b)=>a + Math.pow(b - avg, 2), 0);
+    std = Math.sqrt(sumSq / (n - 1));      // sample standard deviation
+    unc = std / Math.sqrt(n);              // uncertainty value
+  }
+  if (unc !== null && !isNaN(tolerance)) {
+    status = unc < tolerance ? 'VALID' : 'INVALID';
+  }
+
+  document.getElementById('calib-sum-resolution').textContent = isNaN(resolution) ? '-' : fmtCalibNum(resolution, decimals);
+  document.getElementById('calib-sum-tolerance').textContent = isNaN(tolerance) ? '-' : fmtCalibNum(tolerance, decimals);
+  document.getElementById('calib-sum-n').textContent = n;
+  document.getElementById('calib-sum-avg').textContent = avg === null ? '-' : fmtCalibNum(avg, decimals);
+  document.getElementById('calib-sum-std').textContent = std === null ? (n < 2 ? 'Data Incomplete' : '-') : fmtCalibNum(std, decimals+1);
+
+  const uncEl = document.getElementById('calib-sum-unc');
+  if (unc === null) { uncEl.textContent = n < 2 ? 'Insufficient data (min. 2 measurements)' : '-'; uncEl.style.fontSize=''; }
+  else { uncEl.textContent = fmtCalibNum(unc, decimals+1); uncEl.style.fontSize='1.1rem'; }
+
+  const statusEl = document.getElementById('calib-sum-status');
+  if (status) statusEl.innerHTML = `<span class="badge ${status==='VALID'?'completed':'overdue'}">${status}</span>`;
+  else statusEl.innerHTML = `<span class="badge pending">Incomplete Data</span>`;
+
+  window._calibComputed = { resolution, tolerance, decimals, n, avg, std, unc, status };
+  return window._calibComputed;
+}
+
+async function saveCalibResult() {
+  const date = document.getElementById('calib-date').value;
+  const location = document.getElementById('calib-location').value.trim();
+  const equipId = document.getElementById('calib-equip-id').value.trim();
+  const equipName = document.getElementById('calib-equip-name').value.trim();
+  if (!date || !location || !equipId || !equipName) {
+    showToast('Calibration Date, Location, Equipment ID and Equipment Name are required','error'); return;
+  }
+  const c = updateCalibSummary();
+  if (isNaN(c.resolution)) { showToast('Equipment Resolution / Readability is required','error'); return; }
+  if (isNaN(c.tolerance)) { showToast('Tolerance could not be determined','error'); return; }
+  if (c.n < 1) { showToast('Enter at least one valid Master and Equipment measurement pair','error'); return; }
+
+  const measurementsPayload = calibMeasurements.map((m,i) => {
+    const master = parseFloat(m.master), equip = parseFloat(m.equipment);
+    const hasBoth = !isNaN(master) && !isNaN(equip);
+    return {
+      replicate: i+1,
+      master: isNaN(master) ? null : master,
+      equipment: isNaN(equip) ? null : equip,
+      correction: hasBoth ? +(master - equip).toFixed(c.decimals + 4) : null
+    };
+  });
+
+  const row = {
+    calibration_date: date,
+    location,
+    equipment_id: equipId,
+    equipment_name: equipName,
+    resolution: c.resolution,
+    tolerance: c.tolerance,
+    tolerance_auto: document.getElementById('calib-tolerance-auto').checked,
+    num_measurements: c.n,
+    measurements: JSON.stringify(measurementsPayload),
+    avg_correction: c.avg,
+    std_dev: c.std,
+    uncertainty: c.unc,
+    status: c.status || 'Incomplete Data',
+    last_updated_by: currentUser,
+    last_updated_at: new Date().toISOString()
+  };
+
+  let result;
+  if (calibEditId) {
+    result = await dbUpdate('calibration_results', calibEditId, row);
+    if (!result) return;
+    showToast('Calibration result updated!','success');
+  } else {
+    result = await dbInsert('calibration_results', row);
+    if (!result) return;
+    calibEditId = result.id;
+    showToast('Calibration result saved!','success');
+  }
+  loadCalibrationPage();
+  loadDashboard();
+}
+
+function renderCalibHistoryTable() {
+  const search = (document.getElementById('calib-history-search')?.value || '').toLowerCase();
+  let rows = calibResults.filter(r => !search ||
+    (r.equipment_id||'').toLowerCase().includes(search) ||
+    (r.equipment_name||'').toLowerCase().includes(search));
+
+  const tbody = document.getElementById('calib-history-tbody');
+  const empty = document.getElementById('calib-history-empty');
+  if (!tbody) return;
+  if (!rows.length) { tbody.innerHTML=''; if (empty) empty.style.display=''; return; }
+  if (empty) empty.style.display='none';
+
+  tbody.innerHTML = rows.map(r => {
+    const decimals = getCalibDecimals(r.resolution);
+    const badgeClass = r.status === 'VALID' ? 'completed' : (r.status === 'INVALID' ? 'overdue' : 'pending');
+    return `<tr>
+      <td class="td-muted">${fmtDate(r.calibration_date)}</td>
+      <td><strong>${escapeHtml(r.equipment_id||'—')}</strong></td>
+      <td>${escapeHtml(r.equipment_name||'—')}</td>
+      <td>${escapeHtml(r.location||'—')}</td>
+      <td>${r.uncertainty!=null ? fmtCalibNum(r.uncertainty, decimals+1) : '-'}</td>
+      <td>${r.tolerance!=null ? fmtCalibNum(r.tolerance, decimals) : '-'}</td>
+      <td><span class="badge ${badgeClass}">${r.status||'Incomplete Data'}</span></td>
+      <td><div style="display:flex;gap:5px">
+          <button class="btn btn-secondary btn-sm" onclick="viewCalibResult(${r.id})" title="View / Edit">👁️</button>
+          <button class="btn btn-secondary btn-sm officer-only" onclick="printCalibResult(${r.id})" title="Print / Export">🖨️</button>
+          <button class="btn btn-danger btn-sm officer-only" onclick="deleteCalibResult(${r.id})" title="Delete">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function viewCalibResult(id) {
+  const r = calibResults.find(x => x.id === id);
+  if (!r) return;
+  calibEditId = r.id;
+  document.getElementById('calib-date').value = r.calibration_date || '';
+  document.getElementById('calib-location').value = r.location || '';
+  document.getElementById('calib-equip-id').value = r.equipment_id || '';
+  document.getElementById('calib-equip-name').value = r.equipment_name || '';
+  document.getElementById('calib-resolution').value = r.resolution ?? '';
+  document.getElementById('calib-tolerance-auto').checked = !!r.tolerance_auto;
+  document.getElementById('calib-tolerance').value = r.tolerance ?? '';
+  document.getElementById('calib-tolerance').disabled = !!r.tolerance_auto;
+
+  let measurements = [];
+  try { measurements = typeof r.measurements === 'string' ? JSON.parse(r.measurements) : (r.measurements || []); } catch(e) { measurements = []; }
+  calibMeasurements = measurements.length
+    ? measurements.map(m => ({ master: m.master ?? '', equipment: m.equipment ?? '' }))
+    : [{master:'',equipment:''}];
+  document.getElementById('calib-num-measurements').value = calibMeasurements.length;
+
+  renderCalibMeasurementTable();
+  updateCalibSummary();
+  showToast('Loaded calibration record for editing','info');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+async function deleteCalibResult(id) {
+  if (!confirm('Delete this calibration result?')) return;
+  await dbDelete('calibration_results', id);
+  showToast('Deleted!','success');
+  if (calibEditId === id) resetCalibForm();
+  loadCalibrationPage();
+  loadDashboard();
+}
+
+function printCalibResult(id) {
+  let r;
+  if (id) {
+    r = calibResults.find(x => x.id === id);
+    if (!r) return;
+  } else {
+    const c = updateCalibSummary();
+    r = {
+      calibration_date: document.getElementById('calib-date').value,
+      location: document.getElementById('calib-location').value,
+      equipment_id: document.getElementById('calib-equip-id').value,
+      equipment_name: document.getElementById('calib-equip-name').value,
+      resolution: c.resolution,
+      tolerance: c.tolerance,
+      avg_correction: c.avg,
+      std_dev: c.std,
+      uncertainty: c.unc,
+      status: c.status || 'Incomplete Data',
+      measurements: JSON.stringify(calibMeasurements.map((m,i)=>({replicate:i+1, master:m.master, equipment:m.equipment,
+        correction: (!isNaN(parseFloat(m.master)) && !isNaN(parseFloat(m.equipment))) ? (parseFloat(m.master)-parseFloat(m.equipment)) : null})))
+    };
+  }
+  const decimals = getCalibDecimals(r.resolution);
+  let measurements = [];
+  try { measurements = typeof r.measurements === 'string' ? JSON.parse(r.measurements) : (r.measurements || []); } catch(e) {}
+
+  const rowsHtml = measurements.map(m => `<tr>
+      <td style="padding:6px 10px;border:1px solid #ccc;text-align:center">${m.replicate}</td>
+      <td style="padding:6px 10px;border:1px solid #ccc;text-align:center">${m.master ?? '-'}</td>
+      <td style="padding:6px 10px;border:1px solid #ccc;text-align:center">${m.equipment ?? '-'}</td>
+      <td style="padding:6px 10px;border:1px solid #ccc;text-align:center">${m.correction != null ? fmtCalibNum(m.correction, decimals) : '-'}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Calibration Result — ${escapeHtml(r.equipment_id||'')}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:32px;max-width:720px;margin:0 auto}
+    h1{font-size:18px;margin-bottom:4px}
+    .sub{color:#555;font-size:12px;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+    th{background:#eff6ff;padding:6px 10px;border:1px solid #ccc;text-align:center}
+    .meta{font-size:13px;margin:2px 0}
+    .summary{margin-top:18px;font-size:13px}
+    .summary div{padding:4px 0;border-bottom:1px solid #eee;display:flex;justify-content:space-between}
+    .status{font-weight:700;padding:2px 10px;border-radius:6px}
+    .status.VALID{background:#f0fdf4;color:#15803d}
+    .status.INVALID{background:#fff1f2;color:#dc2626}
+    @media print{ button{display:none} }
+  </style></head><body>
+    <h1>CALIBRATION RESULT</h1>
+    <div class="sub">Generated ${new Date().toLocaleString()}</div>
+    <div class="meta"><strong>Date:</strong> ${escapeHtml(r.calibration_date||'-')}</div>
+    <div class="meta"><strong>Location / Department:</strong> ${escapeHtml(r.location||'-')}</div>
+    <div class="meta"><strong>Equipment ID:</strong> ${escapeHtml(r.equipment_id||'-')}</div>
+    <div class="meta"><strong>Equipment Name:</strong> ${escapeHtml(r.equipment_name||'-')}</div>
+    <table><thead><tr><th>Replicate</th><th>Master Measurement</th><th>Equipment Measurement</th><th>Correction Value</th></tr></thead>
+    <tbody>${rowsHtml}</tbody></table>
+    <div class="summary">
+      <div><span>Resolution</span><span>${fmtCalibNum(r.resolution, decimals)}</span></div>
+      <div><span>Tolerance</span><span>${fmtCalibNum(r.tolerance, decimals)}</span></div>
+      <div><span>Number of Measurements</span><span>${measurements.length}</span></div>
+      <div><span>Average Correction Value</span><span>${r.avg_correction!=null?fmtCalibNum(r.avg_correction, decimals):'-'}</span></div>
+      <div><span>Standard Deviation</span><span>${r.std_dev!=null?fmtCalibNum(r.std_dev, decimals+1):'Data Incomplete'}</span></div>
+      <div><span>Uncertainty Value</span><span>${r.uncertainty!=null?fmtCalibNum(r.uncertainty, decimals+1):'Insufficient data'}</span></div>
+      <div><span>Status</span><span class="status ${r.status}">${r.status||'Incomplete Data'}</span></div>
+    </div>
+    <p style="margin-top:24px;font-size:11px;color:#777">Calibration Result is VALID when Uncertainty Value &lt; Tolerance. Tolerance = 5 × Resolution/Readability (unless manually set).</p>
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Please allow pop-ups to print/export','error'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
