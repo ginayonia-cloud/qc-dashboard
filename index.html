@@ -1492,11 +1492,13 @@
             <h1>⚖️ Calibration Calculation</h1>
             <p>Enter measurement results and let the system calculate correction, uncertainty, and calibration status automatically.</p>
           </div>
-          <button class="btn btn-secondary officer-only" onclick="resetCalibForm()">+ New Calibration</button>
+          <button class="btn btn-secondary" onclick="resetCalibForm()">+ New Calibration</button>
         </div>
 
-        <!-- Entry form (QC Officers only — QC Field can view saved results below) -->
-        <div class="officer-only">
+        <!-- Entry form — QC Field and QC Officer can both enter & submit. Once a
+             submitted result is opened, it's locked read-only for QC Field but stays
+             fully editable for QC Officer (see applyCalibPermissions()). -->
+        <div id="calib-entry-section">
           <!-- Equipment / Input Data -->
           <div class="card" style="margin-bottom:16px">
             <h3 style="margin-bottom:14px;font-size:0.95rem;color:var(--blue-800)">Equipment &amp; Input Data</h3>
@@ -1506,8 +1508,8 @@
                 <input class="form-input" type="date" id="calib-date">
               </div>
               <div class="form-group">
-                <label class="form-label">Location / Department *</label>
-                <input class="form-input" id="calib-location" placeholder="e.g. Central Kitchen">
+                <label class="form-label">Location / Department</label>
+                <input class="form-input" id="calib-location" value="CK PGS" disabled>
               </div>
             </div>
             <div class="form-row">
@@ -1516,42 +1518,31 @@
                 <input class="form-input" id="calib-equip-id" placeholder="e.g. PGS-01">
               </div>
               <div class="form-group">
-                <label class="form-label">Equipment Name *</label>
-                <input class="form-input" id="calib-equip-name" placeholder="e.g. Digital Scale">
+                <label class="form-label">Equipment Name</label>
+                <input class="form-input" id="calib-equip-name" value="QC Scale" disabled>
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label">Resolution / Readability *</label>
-                <input class="form-input" type="number" step="any" id="calib-resolution" placeholder="e.g. 0.1" oninput="onCalibResolutionChange()">
+                <label class="form-label">Resolution / Readability</label>
+                <input class="form-input" type="number" step="any" id="calib-resolution" value="0.1" disabled>
               </div>
               <div class="form-group">
                 <label class="form-label">Tolerance</label>
-                <div style="display:flex;gap:8px;align-items:center">
-                  <input class="form-input" type="number" step="any" id="calib-tolerance" placeholder="Auto = 5 × resolution" disabled oninput="updateCalibSummary()">
-                </div>
-                <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:0.78rem;color:var(--text-muted);font-weight:600;cursor:pointer">
-                  <input type="checkbox" id="calib-tolerance-auto" checked onchange="onCalibToleranceAutoToggle()"> Auto-calculate (5 × resolution)
-                </label>
+                <input class="form-input" type="number" step="any" id="calib-tolerance" value="0.5" disabled>
               </div>
             </div>
             <div class="form-row">
               <div class="form-group" style="max-width:260px">
                 <label class="form-label">Number of Measurements / Replicates</label>
-                <input class="form-input" type="number" min="1" max="50" id="calib-num-measurements" value="3" onchange="setCalibRowCount(this.value)">
+                <input class="form-input" type="number" id="calib-num-measurements" value="3" disabled>
               </div>
             </div>
           </div>
 
           <!-- Measurement Table -->
           <div class="card" style="margin-bottom:16px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-              <h3 style="font-size:0.95rem;color:var(--blue-800)">Measurement Data</h3>
-              <div style="display:flex;gap:8px">
-                <button class="btn btn-secondary btn-sm" onclick="addCalibRow()">+ Add Measurement</button>
-                <button class="btn btn-secondary btn-sm" onclick="removeCalibRow()">− Remove Measurement</button>
-              </div>
-            </div>
+            <h3 style="margin-bottom:14px;font-size:0.95rem;color:var(--blue-800)">Measurement Data</h3>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -1560,7 +1551,6 @@
                     <th>Master Measurement Result</th>
                     <th>Equipment Measurement Result</th>
                     <th>Correction Value</th>
-                    <th style="width:50px"></th>
                   </tr>
                 </thead>
                 <tbody id="calib-measure-tbody"></tbody>
@@ -1572,8 +1562,8 @@
           <div class="card" style="margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap">
             <button class="btn btn-primary" onclick="updateCalibSummary()">Calculate Calibration</button>
             <button class="btn btn-secondary" onclick="resetCalibForm()">Reset</button>
-            <button class="btn btn-primary" onclick="saveCalibResult()">Save Result</button>
-            <button class="btn btn-secondary" onclick="printCalibResult()">Print / Export</button>
+            <button class="btn btn-primary" id="calib-btn-save" onclick="saveCalibResult()">Save Result</button>
+            <button class="btn btn-secondary officer-only" id="calib-btn-print" onclick="printCalibResult()">Print / Export</button>
           </div>
         </div>
 
@@ -3132,6 +3122,7 @@ async function deleteSpec(id) {
 let calibResults = [];
 let calibMeasurements = [];
 let calibEditId = null;
+let calibReadOnly = false;
 
 function getCalibDecimals(resVal) {
   const s = String(resVal == null ? '' : resVal).trim();
@@ -3149,70 +3140,57 @@ async function loadCalibrationPage() {
   calibResults = await dbGet('calibration_results');
   renderCalibHistoryTable();
   if (!calibMeasurements.length) resetCalibForm(false);
-  else { renderCalibMeasurementTable(); updateCalibSummary(); }
+  else { applyCalibPermissions(); updateCalibSummary(); }
+}
+
+// These fields are fixed and cannot be edited by the user.
+const CALIB_LOCKED = {
+  location: 'CK PGS',
+  equipmentName: 'QC Scale',
+  resolution: 0.1,
+  tolerance: 0.5,
+  numMeasurements: 3,
+  masterResult: 200
+};
+
+// QC Field: can enter & submit new results, but once a submitted result is
+// opened it becomes view-only (no edit/save/print/delete).
+// QC Officer: full access at all times (enter, submit, view, edit, print, delete).
+function applyCalibPermissions() {
+  const isOfficer = currentRole === 'officer';
+  const submitted = calibEditId !== null;
+  calibReadOnly = !isOfficer && submitted;
+
+  const dateEl = document.getElementById('calib-date');
+  const idEl = document.getElementById('calib-equip-id');
+  if (dateEl) dateEl.disabled = calibReadOnly;
+  if (idEl) idEl.disabled = calibReadOnly;
+
+  const saveBtn = document.getElementById('calib-btn-save');
+  if (saveBtn) saveBtn.style.display = calibReadOnly ? 'none' : '';
+
+  const printBtn = document.getElementById('calib-btn-print');
+  if (printBtn) printBtn.style.display = isOfficer ? '' : 'none';
+
+  renderCalibMeasurementTable();
 }
 
 function resetCalibForm(clearId = true) {
   if (clearId) calibEditId = null;
-  ['calib-date','calib-location','calib-equip-id','calib-equip-name','calib-resolution','calib-tolerance'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  const auto = document.getElementById('calib-tolerance-auto');
-  if (auto) auto.checked = true;
-  const tolInput = document.getElementById('calib-tolerance');
-  if (tolInput) tolInput.disabled = true;
-  document.getElementById('calib-num-measurements').value = 3;
-  calibMeasurements = [{master:'',equipment:''},{master:'',equipment:''},{master:'',equipment:''}];
-  renderCalibMeasurementTable();
-  updateCalibSummary();
-}
-
-function setCalibRowCount(n) {
-  n = Math.max(1, Math.min(50, parseInt(n) || 1));
-  while (calibMeasurements.length < n) calibMeasurements.push({master:'',equipment:''});
-  while (calibMeasurements.length > n) calibMeasurements.pop();
-  document.getElementById('calib-num-measurements').value = calibMeasurements.length;
-  renderCalibMeasurementTable();
-  updateCalibSummary();
-}
-
-function addCalibRow() {
-  calibMeasurements.push({master:'',equipment:''});
-  document.getElementById('calib-num-measurements').value = calibMeasurements.length;
-  renderCalibMeasurementTable();
-  updateCalibSummary();
-}
-
-function removeCalibRow() {
-  if (calibMeasurements.length <= 1) { showToast('At least one measurement row is required','error'); return; }
-  calibMeasurements.pop();
-  document.getElementById('calib-num-measurements').value = calibMeasurements.length;
-  renderCalibMeasurementTable();
-  updateCalibSummary();
-}
-
-function removeCalibRowAt(i) {
-  if (calibMeasurements.length <= 1) { showToast('At least one measurement row is required','error'); return; }
-  calibMeasurements.splice(i,1);
-  document.getElementById('calib-num-measurements').value = calibMeasurements.length;
-  renderCalibMeasurementTable();
+  document.getElementById('calib-date').value = '';
+  document.getElementById('calib-equip-id').value = '';
+  document.getElementById('calib-location').value = CALIB_LOCKED.location;
+  document.getElementById('calib-equip-name').value = CALIB_LOCKED.equipmentName;
+  document.getElementById('calib-resolution').value = CALIB_LOCKED.resolution;
+  document.getElementById('calib-tolerance').value = CALIB_LOCKED.tolerance;
+  document.getElementById('calib-num-measurements').value = CALIB_LOCKED.numMeasurements;
+  calibMeasurements = Array.from({length: CALIB_LOCKED.numMeasurements}, () => ({master: CALIB_LOCKED.masterResult, equipment: ''}));
+  applyCalibPermissions();
   updateCalibSummary();
 }
 
 function onCalibCellInput(i, field, val) {
   calibMeasurements[i][field] = val;
-  updateCalibSummary();
-}
-
-function onCalibResolutionChange() {
-  const auto = document.getElementById('calib-tolerance-auto');
-  if (auto && auto.checked) updateCalibSummary();
-  else updateCalibSummary();
-}
-
-function onCalibToleranceAutoToggle() {
-  const auto = document.getElementById('calib-tolerance-auto').checked;
-  document.getElementById('calib-tolerance').disabled = auto;
   updateCalibSummary();
 }
 
@@ -3222,29 +3200,16 @@ function renderCalibMeasurementTable() {
   tbody.innerHTML = calibMeasurements.map((m,i)=>`
     <tr>
       <td class="td-muted">${i+1}</td>
-      <td><input type="number" step="any" class="form-input" value="${m.master ?? ''}" placeholder="e.g. 200" oninput="onCalibCellInput(${i},'master',this.value)"></td>
-      <td><input type="number" step="any" class="form-input" value="${m.equipment ?? ''}" placeholder="Enter reading" oninput="onCalibCellInput(${i},'equipment',this.value)"></td>
+      <td><input type="number" step="any" class="form-input" value="${CALIB_LOCKED.masterResult}" disabled></td>
+      <td><input type="number" step="any" class="form-input" value="${m.equipment ?? ''}" placeholder="Enter reading" ${calibReadOnly ? 'disabled' : ''} oninput="onCalibCellInput(${i},'equipment',this.value)"></td>
       <td class="td-muted" id="calib-corr-${i}">-</td>
-      <td class="officer-only"><button class="btn btn-danger btn-sm" onclick="removeCalibRowAt(${i})" title="Remove row">🗑</button></td>
     </tr>`).join('');
 }
 
 function updateCalibSummary() {
-  const resRaw = document.getElementById('calib-resolution').value;
-  const resolution = parseFloat(resRaw);
-  const decimals = getCalibDecimals(resRaw);
-
-  const autoTol = document.getElementById('calib-tolerance-auto').checked;
-  const tolInput = document.getElementById('calib-tolerance');
-  let tolerance;
-  if (autoTol) {
-    tolerance = isNaN(resolution) ? NaN : resolution * 5;
-    tolInput.value = isNaN(tolerance) ? '' : tolerance.toFixed(decimals);
-    tolInput.disabled = true;
-  } else {
-    tolInput.disabled = false;
-    tolerance = parseFloat(tolInput.value);
-  }
+  const resolution = CALIB_LOCKED.resolution;
+  const decimals = getCalibDecimals(resolution);
+  const tolerance = CALIB_LOCKED.tolerance;
 
   // Correction values (only rows with both numeric master & equipment count)
   const valid = [];
@@ -3273,8 +3238,8 @@ function updateCalibSummary() {
     status = unc < tolerance ? 'VALID' : 'INVALID';
   }
 
-  document.getElementById('calib-sum-resolution').textContent = isNaN(resolution) ? '-' : fmtCalibNum(resolution, decimals);
-  document.getElementById('calib-sum-tolerance').textContent = isNaN(tolerance) ? '-' : fmtCalibNum(tolerance, decimals);
+  document.getElementById('calib-sum-resolution').textContent = fmtCalibNum(resolution, decimals);
+  document.getElementById('calib-sum-tolerance').textContent = fmtCalibNum(tolerance, decimals);
   document.getElementById('calib-sum-n').textContent = n;
   document.getElementById('calib-sum-avg').textContent = avg === null ? '-' : fmtCalibNum(avg, decimals);
   document.getElementById('calib-sum-std').textContent = std === null ? (n < 2 ? 'Data Incomplete' : '-') : fmtCalibNum(std, decimals+1);
@@ -3292,17 +3257,16 @@ function updateCalibSummary() {
 }
 
 async function saveCalibResult() {
+  if (calibReadOnly) { showToast('This calibration result is view only','error'); return; }
   const date = document.getElementById('calib-date').value;
   const location = document.getElementById('calib-location').value.trim();
   const equipId = document.getElementById('calib-equip-id').value.trim();
   const equipName = document.getElementById('calib-equip-name').value.trim();
-  if (!date || !location || !equipId || !equipName) {
-    showToast('Calibration Date, Location, Equipment ID and Equipment Name are required','error'); return;
+  if (!date || !equipId) {
+    showToast('Calibration Date and Equipment ID are required','error'); return;
   }
   const c = updateCalibSummary();
-  if (isNaN(c.resolution)) { showToast('Equipment Resolution / Readability is required','error'); return; }
-  if (isNaN(c.tolerance)) { showToast('Tolerance could not be determined','error'); return; }
-  if (c.n < 1) { showToast('Enter at least one valid Master and Equipment measurement pair','error'); return; }
+  if (c.n < 1) { showToast('Enter at least one Equipment Measurement Result','error'); return; }
 
   const measurementsPayload = calibMeasurements.map((m,i) => {
     const master = parseFloat(m.master), equip = parseFloat(m.equipment);
@@ -3322,7 +3286,7 @@ async function saveCalibResult() {
     equipment_name: equipName,
     resolution: c.resolution,
     tolerance: c.tolerance,
-    tolerance_auto: document.getElementById('calib-tolerance-auto').checked,
+    tolerance_auto: true,
     num_measurements: c.n,
     measurements: JSON.stringify(measurementsPayload),
     avg_correction: c.avg,
@@ -3372,7 +3336,7 @@ function renderCalibHistoryTable() {
       <td>${r.tolerance!=null ? fmtCalibNum(r.tolerance, decimals) : '-'}</td>
       <td><span class="badge ${badgeClass}">${r.status||'Incomplete Data'}</span></td>
       <td><div style="display:flex;gap:5px">
-          <button class="btn btn-secondary btn-sm" onclick="viewCalibResult(${r.id})" title="View / Edit">👁️</button>
+          <button class="btn btn-secondary btn-sm" onclick="viewCalibResult(${r.id})" title="${currentRole==='officer'?'View / Edit':'View'}">👁️</button>
           <button class="btn btn-secondary btn-sm officer-only" onclick="printCalibResult(${r.id})" title="Print / Export">🖨️</button>
           <button class="btn btn-danger btn-sm officer-only" onclick="deleteCalibResult(${r.id})" title="Delete">🗑</button>
         </div>
@@ -3389,25 +3353,24 @@ function viewCalibResult(id) {
   document.getElementById('calib-location').value = r.location || '';
   document.getElementById('calib-equip-id').value = r.equipment_id || '';
   document.getElementById('calib-equip-name').value = r.equipment_name || '';
-  document.getElementById('calib-resolution').value = r.resolution ?? '';
-  document.getElementById('calib-tolerance-auto').checked = !!r.tolerance_auto;
-  document.getElementById('calib-tolerance').value = r.tolerance ?? '';
-  document.getElementById('calib-tolerance').disabled = !!r.tolerance_auto;
+  document.getElementById('calib-resolution').value = r.resolution ?? CALIB_LOCKED.resolution;
+  document.getElementById('calib-tolerance').value = r.tolerance ?? CALIB_LOCKED.tolerance;
 
   let measurements = [];
   try { measurements = typeof r.measurements === 'string' ? JSON.parse(r.measurements) : (r.measurements || []); } catch(e) { measurements = []; }
   calibMeasurements = measurements.length
-    ? measurements.map(m => ({ master: m.master ?? '', equipment: m.equipment ?? '' }))
-    : [{master:'',equipment:''}];
+    ? measurements.map(m => ({ master: m.master ?? CALIB_LOCKED.masterResult, equipment: m.equipment ?? '' }))
+    : [{master: CALIB_LOCKED.masterResult, equipment:''}];
   document.getElementById('calib-num-measurements').value = calibMeasurements.length;
 
-  renderCalibMeasurementTable();
+  applyCalibPermissions();
   updateCalibSummary();
-  showToast('Loaded calibration record for editing','info');
+  showToast(currentRole === 'officer' ? 'Loaded calibration record for editing' : 'Viewing submitted calibration result (read only)', 'info');
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
 async function deleteCalibResult(id) {
+  if (currentRole !== 'officer') { showToast('Only QC Officers can delete calibration results','error'); return; }
   if (!confirm('Delete this calibration result?')) return;
   await dbDelete('calibration_results', id);
   showToast('Deleted!','success');
@@ -3417,6 +3380,7 @@ async function deleteCalibResult(id) {
 }
 
 function printCalibResult(id) {
+  if (currentRole !== 'officer') { showToast('Only QC Officers can print/export calibration results','error'); return; }
   let r;
   if (id) {
     r = calibResults.find(x => x.id === id);
