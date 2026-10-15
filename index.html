@@ -785,6 +785,7 @@
 
     /* ── ROLE GATING ───────────────────────────────────────────── */
     body.role-field .officer-only { display: none !important; }
+    body:not(.role-field) .field-only { display: none !important; }
 
     /* ── PASSWORD MODAL ────────────────────────────────────────── */
     #pw-overlay {
@@ -1196,6 +1197,12 @@
       </div>
       <div class="nav-item" onclick="showPage('calibration',this)">
         <span class="nav-icon">⚖️</span> Calibration
+      </div>
+      <div class="nav-item" onclick="showPage('bossEval',this)">
+        <span class="nav-icon">📝</span> Evaluasi Atasan
+      </div>
+      <div class="nav-item" onclick="showPage('halalInbound',this)">
+        <span class="nav-icon">🕌</span> Halal Inbound
       </div>
       <div class="nav-item officer-only" onclick="showPage('calendar',this)">
         <span class="nav-icon">📆</span> Calendar
@@ -1610,6 +1617,122 @@
             <div class="empty-icon">⚖️</div>
             <p>No calibration results saved yet.</p>
           </div>
+        </div>
+      </div>
+
+      <!-- ── EVALUASI ATASAN PAGE ──────────────────────────────── -->
+      <div id="page-bossEval" class="page">
+        <div class="page-header">
+          <div>
+            <h1>📝 Evaluasi Atasan</h1>
+            <p>Evaluasi tertulis (esai) dari QC Field terhadap atasan (QC Officer) — bersifat anonim.</p>
+          </div>
+        </div>
+
+        <!-- Form pengisian — hanya untuk QC Field -->
+        <div class="field-only">
+          <div class="card" style="margin-bottom:16px">
+            <div style="background:var(--blue-50);border:1px solid var(--blue-100);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:0.8rem;color:var(--blue-800);font-weight:600">
+              🔒 Evaluasi ini bersifat anonim. Nama Anda sebagai pemberi penilaian tidak disimpan maupun ditampilkan kepada siapa pun.
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Atasan yang Dinilai *</label>
+                <select class="form-input" id="bosseval-target">
+                  <option value="">— Pilih Atasan —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Periode Penilaian *</label>
+                <input class="form-input" type="month" id="bosseval-period">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">1. Kepemimpinan &amp; Pengambilan Keputusan</label>
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">Bagaimana cara atasan memimpin tim dan mengambil keputusan sehari-hari?</p>
+              <textarea class="form-input" id="bosseval-leadership" rows="3" placeholder="Tuliskan penilaian Anda..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">2. Komunikasi &amp; Keterbukaan</label>
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">Seberapa jelas dan terbuka atasan berkomunikasi dengan Anda dan tim?</p>
+              <textarea class="form-input" id="bosseval-communication" rows="3" placeholder="Tuliskan penilaian Anda..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">3. Dukungan &amp; Bimbingan ke Bawahan</label>
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">Apakah atasan memberikan dukungan, arahan, dan bimbingan yang cukup?</p>
+              <textarea class="form-input" id="bosseval-support" rows="3" placeholder="Tuliskan penilaian Anda..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">4. Keadilan &amp; Profesionalisme</label>
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">Apakah atasan bersikap adil, profesional, dan tidak memihak?</p>
+              <textarea class="form-input" id="bosseval-fairness" rows="3" placeholder="Tuliskan penilaian Anda..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">5. Kompetensi Teknis QC</label>
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">Bagaimana penguasaan atasan terhadap aspek teknis QC dalam pekerjaan?</p>
+              <textarea class="form-input" id="bosseval-technical" rows="3" placeholder="Tuliskan penilaian Anda..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Catatan / Masukan Tambahan (opsional)</label>
+              <textarea class="form-input" id="bosseval-additional" rows="2" placeholder="Masukan lain yang ingin disampaikan..."></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="resetBossEvalForm()">Reset</button>
+              <button class="btn btn-primary" onclick="submitBossEval()">Kirim Evaluasi</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hasil evaluasi — hanya untuk QC Officer -->
+        <div class="officer-only">
+          <div class="filter-bar">
+            <input class="filter-input" type="text" id="bosseval-search" placeholder="🔍 Cari catatan evaluasi..." oninput="renderBossEvalList()">
+            <select class="filter-input" id="bosseval-filter-target" onchange="renderBossEvalList()" style="max-width:200px">
+              <option value="">Semua Atasan</option>
+            </select>
+            <select class="filter-input" id="bosseval-filter-period" onchange="renderBossEvalList()" style="max-width:180px">
+              <option value="">Semua Periode</option>
+            </select>
+          </div>
+          <div id="bosseval-list"></div>
+          <div id="bosseval-empty" class="empty-state" style="display:none">
+            <div class="empty-icon">📝</div>
+            <p>Belum ada evaluasi atasan yang masuk.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── HALAL INBOUND PAGE ──────────────────────────────── -->
+      <div id="page-halalInbound" class="page">
+        <div class="page-header">
+          <div>
+            <h1>🕌 Halal Inbound</h1>
+            <p>Cari status kepatuhan halal (BPJPH) vendor dan material yang mereka pasok.</p>
+          </div>
+          <button class="btn btn-primary officer-only" onclick="openHalalVendorModal()">+ Tambah Vendor</button>
+        </div>
+
+        <div class="filter-bar">
+          <input class="filter-input" type="text" id="halal-search" placeholder="🔍 Cari nama vendor atau nama material..." oninput="renderHalalList()">
+        </div>
+
+        <!-- Legend -->
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:0.78rem;font-weight:600">
+          <span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:#dcfce7;border:1px solid #bbf7d0;display:inline-block"></span>Sudah Comply BPJPH</span>
+          <span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:#fee2e2;border:1px solid #fecaca;display:inline-block"></span>Belum Comply BPJPH</span>
+        </div>
+
+        <div id="halal-list"></div>
+        <div id="halal-empty" class="empty-state" style="display:none">
+          <div class="empty-icon">🕌</div>
+          <p id="halal-empty-text">Belum ada data vendor halal inbound.</p>
         </div>
       </div>
 
@@ -2060,6 +2183,43 @@
   </div>
 </div>
 
+<!-- Halal Vendor Modal (Officer only — add / edit) -->
+<div class="modal-overlay" id="modal-halal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-halal-title">Tambah Vendor</div>
+      <div class="modal-close" onclick="closeHalalVendorModal()">✕</div>
+    </div>
+    <input type="hidden" id="halal-id">
+    <div class="form-group">
+      <label class="form-label">Nama Vendor *</label>
+      <input class="form-input" id="halal-vendor-name" placeholder="e.g. PT Rumah Sayur Nusantara">
+    </div>
+    <div class="form-group">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <label class="form-label" style="margin-bottom:0">Daftar Material</label>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addHalalMaterialRow()">+ Tambah Material</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nama Material</th>
+              <th style="width:160px">Status BPJPH</th>
+              <th style="width:44px"></th>
+            </tr>
+          </thead>
+          <tbody id="halal-material-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" onclick="closeHalalVendorModal()">Batal</button>
+      <button class="btn btn-primary" onclick="saveHalalVendor()">Simpan Vendor</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast Container -->
 <div id="toast-container"></div>
 
@@ -2092,7 +2252,9 @@ let demoData = {
   sop_documents: [],
   announcements: [],
   access_logs: [],
-  calibration_results: []
+  calibration_results: [],
+  boss_evaluations: [],
+  halal_vendors: []
 };
 
 function initSupabase() {
@@ -2152,6 +2314,10 @@ function seedDemoData() {
   demoData.announcements = [
     { id: 1, title:'Welcome to QCBoard 📢', message:'Use this Announcement feature to broadcast important updates to all QC Officers and QC Field staff. Posts appear in everyone\'s Notification Center and are searchable from the top bar.', posted_by:'Nashir', posted_at: now, last_updated_by:'Nashir', last_updated_at: now },
   ];
+  demoData.halal_vendors = HALAL_SEED_DATA.map((v,i) => ({
+    id: i+1, vendor_name: v.vendor_name, materials: v.materials,
+    last_updated_by:'Nashir', last_updated_at: now
+  }));
   saveDemoData();
 }
 
@@ -2581,7 +2747,8 @@ const pageNames = {
   dashboard:'Dashboard', training:'Training Schedule',
   todo:'To-Do List', specs:'Product Specifications',
   announce:'Announcements', calendar:'Calendar',
-  access:'Access Report', calibration:'Calibration Calculation'
+  access:'Access Report', calibration:'Calibration Calculation',
+  bossEval:'Evaluasi Atasan', halalInbound:'Halal Inbound'
 };
 
 function showPage(name, el) {
@@ -2596,6 +2763,8 @@ function showPage(name, el) {
   else if (name === 'todo') loadTodoPage();
   else if (name === 'specs') loadSpecsPage();
   else if (name === 'calibration') loadCalibrationPage();
+  else if (name === 'bossEval') loadBossEvalPage();
+  else if (name === 'halalInbound') loadHalalInboundPage();
   else if (name === 'announce') loadAnnouncePage();
   else if (name === 'calendar') loadCalendarPage();
   else if (name === 'access') loadAccessReportPage();
@@ -2615,6 +2784,8 @@ async function dbGet(table) {
     trial_reports: 'last_updated_at',
     access_logs: 'created_at',
     calibration_results: 'last_updated_at',
+    boss_evaluations: 'submitted_at',
+    halal_vendors: 'vendor_name',
   };
   const orderCol = orderMap[table] || 'id';
   const { data, error } = await db.from(table).select('*').order(orderCol, { ascending: false });
@@ -3454,6 +3625,340 @@ function printCalibResult(id) {
   w.document.write(html);
   w.document.close();
 }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   EVALUASI ATASAN (anonymous essay-based upward evaluation)
+   QC Field fills it in; identity is never sent to or stored in the DB.
+   QC Officer can only view/browse submitted essays (read only) + delete.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+let bossEvalResults = [];
+const BOSSEVAL_MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+function fmtBossEvalPeriod(period) {
+  if (!period) return '-';
+  const [y,m] = period.split('-');
+  const idx = parseInt(m,10) - 1;
+  return (BOSSEVAL_MONTHS[idx] || m) + ' ' + y;
+}
+
+function getOfficerNames() {
+  return Object.keys(profileRoles).filter(name => profileRoles[name] === 'officer');
+}
+
+function populateBossEvalTargets() {
+  const officers = getOfficerNames();
+  const targetSel = document.getElementById('bosseval-target');
+  if (targetSel && targetSel.options.length <= 1) {
+    officers.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      targetSel.appendChild(opt);
+    });
+  }
+  const filterSel = document.getElementById('bosseval-filter-target');
+  if (filterSel && filterSel.options.length <= 1) {
+    officers.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      filterSel.appendChild(opt);
+    });
+  }
+}
+
+function populateBossEvalPeriodFilter() {
+  const filterSel = document.getElementById('bosseval-filter-period');
+  if (!filterSel) return;
+  const current = filterSel.value;
+  const periods = [...new Set(bossEvalResults.map(r => r.period).filter(Boolean))].sort().reverse();
+  filterSel.innerHTML = '<option value="">Semua Periode</option>' +
+    periods.map(p => `<option value="${p}">${fmtBossEvalPeriod(p)}</option>`).join('');
+  if (periods.includes(current)) filterSel.value = current;
+}
+
+async function loadBossEvalPage() {
+  populateBossEvalTargets();
+  if (currentRole === 'field') {
+    resetBossEvalForm();
+  } else {
+    bossEvalResults = await dbGet('boss_evaluations');
+    populateBossEvalPeriodFilter();
+    renderBossEvalList();
+  }
+}
+
+function resetBossEvalForm() {
+  document.getElementById('bosseval-target').value = '';
+  const now = new Date();
+  document.getElementById('bosseval-period').value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  ['bosseval-leadership','bosseval-communication','bosseval-support','bosseval-fairness','bosseval-technical','bosseval-additional'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+}
+
+async function submitBossEval() {
+  const target = document.getElementById('bosseval-target').value;
+  const period = document.getElementById('bosseval-period').value;
+  const leadership = document.getElementById('bosseval-leadership').value.trim();
+  const communication = document.getElementById('bosseval-communication').value.trim();
+  const support = document.getElementById('bosseval-support').value.trim();
+  const fairness = document.getElementById('bosseval-fairness').value.trim();
+  const technical = document.getElementById('bosseval-technical').value.trim();
+  const additional = document.getElementById('bosseval-additional').value.trim();
+
+  if (!target || !period) { showToast('Pilih atasan dan periode penilaian terlebih dahulu','error'); return; }
+  if (!leadership || !communication || !support || !fairness || !technical) {
+    showToast('Mohon isi kelima aspek penilaian sebelum mengirim','error'); return;
+  }
+
+  const row = {
+    target_name: target,
+    period,
+    leadership_notes: leadership,
+    communication_notes: communication,
+    support_notes: support,
+    fairness_notes: fairness,
+    technical_notes: technical,
+    additional_notes: additional || null,
+    submitted_at: new Date().toISOString()
+    // Intentionally no submitter identity — evaluation is anonymous.
+  };
+  const result = await dbInsert('boss_evaluations', row);
+  if (!result) return;
+  showToast('Terima kasih, evaluasi Anda telah terkirim secara anonim.','success');
+  resetBossEvalForm();
+}
+
+function renderBossEvalList() {
+  const search = (document.getElementById('bosseval-search')?.value || '').toLowerCase();
+  const targetFilter = document.getElementById('bosseval-filter-target')?.value || '';
+  const periodFilter = document.getElementById('bosseval-filter-period')?.value || '';
+
+  let rows = bossEvalResults.filter(r => {
+    if (targetFilter && r.target_name !== targetFilter) return false;
+    if (periodFilter && r.period !== periodFilter) return false;
+    if (search) {
+      const hay = [r.leadership_notes,r.communication_notes,r.support_notes,r.fairness_notes,r.technical_notes,r.additional_notes,r.target_name]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  const listEl = document.getElementById('bosseval-list');
+  const emptyEl = document.getElementById('bosseval-empty');
+  if (!listEl) return;
+  if (!rows.length) { listEl.innerHTML = ''; if (emptyEl) emptyEl.style.display=''; return; }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  listEl.innerHTML = rows.map(r => `
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div>
+          <span class="badge ongoing" style="margin-right:6px">${escapeHtml(r.target_name||'-')}</span>
+          <span class="td-muted" style="font-size:0.8rem">Periode: ${fmtBossEvalPeriod(r.period)} · Anonim</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteBossEval(${r.id})" title="Hapus">🗑</button>
+      </div>
+      <div style="display:grid;gap:10px;font-size:0.85rem">
+        <div><strong>1. Kepemimpinan &amp; Pengambilan Keputusan</strong><p style="margin-top:3px;color:var(--text-secondary);white-space:pre-wrap">${escapeHtml(r.leadership_notes||'-')}</p></div>
+        <div><strong>2. Komunikasi &amp; Keterbukaan</strong><p style="margin-top:3px;color:var(--text-secondary);white-space:pre-wrap">${escapeHtml(r.communication_notes||'-')}</p></div>
+        <div><strong>3. Dukungan &amp; Bimbingan ke Bawahan</strong><p style="margin-top:3px;color:var(--text-secondary);white-space:pre-wrap">${escapeHtml(r.support_notes||'-')}</p></div>
+        <div><strong>4. Keadilan &amp; Profesionalisme</strong><p style="margin-top:3px;color:var(--text-secondary);white-space:pre-wrap">${escapeHtml(r.fairness_notes||'-')}</p></div>
+        <div><strong>5. Kompetensi Teknis QC</strong><p style="margin-top:3px;color:var(--text-secondary);white-space:pre-wrap">${escapeHtml(r.technical_notes||'-')}</p></div>
+        ${r.additional_notes ? `<div><strong>Catatan Tambahan</strong><p style="margin-top:3px;color:var(--text-secondary);white-space:pre-wrap">${escapeHtml(r.additional_notes)}</p></div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+async function deleteBossEval(id) {
+  if (!confirm('Hapus evaluasi ini?')) return;
+  await dbDelete('boss_evaluations', id);
+  showToast('Dihapus!','success');
+  bossEvalResults = await dbGet('boss_evaluations');
+  populateBossEvalPeriodFilter();
+  renderBossEvalList();
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HALAL INBOUND (vendor ↔ material BPJPH compliance lookup)
+   QC Officer: add / edit / delete vendors and their material list.
+   QC Field (mitra): search-only, read-only — can look up a vendor or
+   material and see its BPJPH compliance status, never edit it.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const HALAL_SEED_DATA = [{"vendor_name": "ANDREW", "materials": [{"name": "Beras Cianjur Tanjung Sari", "category": "Groceries", "status": "complied"}, {"name": "Beras Ketan Tanjung Sari", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "Artha Karya Logistik", "materials": [{"name": "Saus Bumbu Rasa Cuka KIKKOMAN 2 L", "category": "Groceries", "status": "complied"}, {"name": "Saus Bumbu Rasa Tiram KIKKOMAN 2.2", "category": "Groceries", "status": "complied"}, {"name": "Saus Kecap Asin Soy Sauce KIKKOMAN 18 L", "category": "Groceries", "status": "complied"}, {"name": "Yakiniku sauce KIKKOMAN 5L", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "Bandar Seafood", "materials": [{"name": "Tuna Saku Frozen", "category": "Frozen", "status": "complied"}]}, {"vendor_name": "Berkah Jaya", "materials": [{"name": "Bawang Bombay", "category": "Fresh", "status": "complied"}, {"name": "Bawang Merah Kupas", "category": "Fresh", "status": "complied"}, {"name": "Bawang Putih Kupas", "category": "Fresh", "status": "complied"}, {"name": "Cabe Merah Keriting", "category": "Fresh", "status": "complied"}, {"name": "Cabe Rawit Merah", "category": "Fresh", "status": "complied"}, {"name": "Daun Bawang Fresh", "category": "Fresh", "status": "complied"}, {"name": "Daun Jeruk", "category": "Fresh", "status": "complied"}, {"name": "Daun Salam Fresh", "category": "Fresh", "status": "complied"}, {"name": "Gula Halus ROSE BRAND 500 gr", "category": "Groceries", "status": "complied"}, {"name": "Gula Kuning ROSE BRAND", "category": "Groceries", "status": "complied"}, {"name": "Jahe Fresh", "category": "Fresh", "status": "complied"}, {"name": "Jamur Champignon", "category": "Fresh", "status": "complied"}, {"name": "Pakcoy", "category": "Fresh", "status": "complied"}, {"name": "Paprika Hijau Fresh", "category": "Fresh", "status": "complied"}, {"name": "Sereh", "category": "Fresh", "status": "complied"}]}, {"vendor_name": "Bumi Kencana", "materials": [{"name": "Cabe Bubuk Chili Powder", "category": "Groceries", "status": "complied"}, {"name": "Five Spices Powder", "category": "Groceries", "status": "complied"}, {"name": "Garlic Powder", "category": "Groceries", "status": "complied"}, {"name": "Ketumbar Bubuk", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "Citarasa Solusi Nusantara", "materials": [{"name": "Demi Glace MKP", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "CV Petra Plast Indonesia", "materials": [{"name": "Segel Aluminium Foil 90mm", "category": "PM", "status": "complied"}, {"name": "Toples Plastik Bening 1L", "category": "PM", "status": "complied"}, {"name": "Toples Plastik Kotak 150ml", "category": "PM", "status": "complied"}]}, {"vendor_name": "Fajar kuasa", "materials": [{"name": "Tuna Saku Frozen", "category": "Frozen", "status": "complied"}]}, {"vendor_name": "Fajar kuasa Karya", "materials": [{"name": "Salmon Trout Fillet Frozen tanpa kulit, tulang", "category": "Frozen", "status": "complied"}]}, {"vendor_name": "Indosari Makmur", "materials": [{"name": "Garam Refina 1kg", "category": "Groceries", "status": "complied"}, {"name": "Kaldu Jamur Totole", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "Komariah", "materials": [{"name": "Bawang Merah Goreng", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "Mato Aneka", "materials": [{"name": "Demi Glace Sauce Mix KNORR 1 Kg", "category": "Groceries", "status": "complied"}, {"name": "Extra Virgin Minyak Zaitun Olive Oil BORGES 5L", "category": "Groceries", "status": "complied"}, {"name": "Kaldu Ikan Bonito SHIMAYA Dashi", "category": "Groceries", "status": "complied"}, {"name": "Minyak Wijen Oh Guan Hing 600ml", "category": "Groceries", "status": "complied"}, {"name": "Prima Agung Mayonaise", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "NR Jaya", "materials": [{"name": "Emping Aceh Mentah", "category": "Fresh", "status": "complied"}]}, {"vendor_name": "PT ABCD Kopi Indonesia", "materials": [{"name": "Biji Kopi Astro's Blend", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Agro Boga Utama", "materials": [{"name": "Mentega Unsalted Butter West Gold", "category": "chilled", "status": "complied"}]}, {"vendor_name": "PT Amidis Tirta Mulia", "materials": [{"name": "Air Demineral AMIDIS 19L (khusus cold brew)", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Anak Mas Indah", "materials": [{"name": "Demi Glace Sauce Mix KNORR 1 Kg", "category": "Groceries", "status": "complied"}, {"name": "Kaldu Ayam Bubuk ROYCO", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Anggana Catur Prima", "materials": [{"name": "Natrium Benzoat", "category": "Groceries", "status": "complied"}, {"name": "Saus Sambal Cabe Dua Belibis 5kg", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Boga Eterna", "materials": [{"name": "Nori Wrapper", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Boga Eterna Sentosa", "materials": [{"name": "Nori Wrapper Bogansa", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Cheko Sentosa", "materials": [{"name": "Plastik Vacuum 11x16cm", "category": "PM", "status": "complied"}, {"name": "Plastik Vacuum Bag 15 x 20 cm", "category": "PM", "status": "complied"}, {"name": "Plastik Vacuum Bag 8x12cm (sambal)", "category": "PM", "status": "complied"}, {"name": "Standing Pouch Ziplock 18 x 26cm", "category": "PM", "status": "complied"}]}, {"vendor_name": "PT Citradimensi Arthali", "materials": [{"name": "Crab Stick CEDEA", "category": "Frozen", "status": "complied"}]}, {"vendor_name": "PT Delisari", "materials": [{"name": "Cooking Cream Pleasure GOLD", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Goreca Mitra Indonesia", "materials": [{"name": "BLP Dice 5x1x2cm", "category": "Frozen", "status": "complied"}, {"name": "Frozen Paha Ayam Fillet 120gr", "category": "Frozen", "status": "complied"}, {"name": "Mentaiko Sauce OMAYO 500gr", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Grand Multi Chemicals", "materials": [{"name": "Black Truffle Lipoflavouring HS026", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Indoguna Utama", "materials": [{"name": "Kewpie Cooking Sauce Mentai Mayonaise", "category": "Groceries", "status": "complied"}, {"name": "Kewpie Original Mayonaise", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Junatama Foodia Kreasindo", "materials": [{"name": "Furikake Mamasuka GIMBORI 50gr", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Kharisma Pakmu Mandiri", "materials": [{"name": "Garam Cap Kapal", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Kreasi Prima Printing", "materials": [{"name": "Sticker AC Chromo Onigiri Beef Yakiniku 3x7cm", "category": "PM", "status": "complied"}, {"name": "Sticker AC Chromo Onigiri Chicken Truffle 3x7cm", "category": "PM", "status": "complied"}, {"name": "Sticker AC Chromo Onigiri Salmon Kani Mentai 3x7cm", "category": "PM", "status": "complied"}, {"name": "Sticker AC Chromo Onigiri Tuna Mayo 3x7cm", "category": "PM", "status": "complied"}]}, {"vendor_name": "PT Masuya Graha Trikencana", "materials": [{"name": "Kewpie Cooking Sauce Mentai Mayonaise", "category": "Groceries", "status": "complied"}, {"name": "Kewpie Original Mayonaise", "category": "Groceries", "status": "complied"}, {"name": "Saus Bumbu Rasa Cuka KIKKOMAN 2 L", "category": "Groceries", "status": "complied"}, {"name": "Saus Bumbu Rasa Tiram KIKKOMAN 2.2", "category": "Groceries", "status": "complied"}, {"name": "Saus Kecap Asin Soy Sauce KIKKOMAN 18 L", "category": "Groceries", "status": "complied"}, {"name": "Yakiniku sauce KIKKOMAN 5L", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Pangan Lestari", "materials": [{"name": "Garam Kasar Dolphin", "category": "Groceries", "status": "complied"}, {"name": "Kerupuk Udang Mentah FINNA 380g", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Pangan Rasa Optima", "materials": [{"name": "Daging Sapi Shortplate", "category": "Frozen", "status": "complied"}]}, {"vendor_name": "PT Primamakmur Langgeng Perkasa", "materials": [{"name": "Minyak Goreng Jerigen 18L", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Rumah Sayur Nusantara", "materials": [{"name": "Garam Refina 1kg", "category": "Groceries", "status": "complied"}, {"name": "Gula Halus ROSE BRAND 500 gr", "category": "Groceries", "status": "complied"}, {"name": "Gula Kuning ROSE BRAND", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT SANTOSA UTAMA LESTARI", "materials": [{"name": "Beras Cianjur Ayana Merah", "category": "Groceries", "status": "complied"}, {"name": "Beras Ketan Ayana", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Sukanda djaya", "materials": [{"name": "Susu Full Cream UHT DIAMOND 1 L", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT Tangan Emas Pasifik", "materials": [{"name": "Nori Wrapper Bogansa", "category": "Groceries", "status": "complied"}, {"name": "Tobiko Orange", "category": "Frozen", "status": "complied"}]}, {"vendor_name": "PT Wahana Inti Makmur", "materials": [{"name": "Beras Jepang Shiroku 5kg", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT. DAMASES SEJAHTERA", "materials": [{"name": "Silica Gel Plastik", "category": "PM", "status": "complied"}]}, {"vendor_name": "PT. FAREXA MITRA SOLUSINDO", "materials": [{"name": "Dried Parsley", "category": "Groceries", "status": "complied"}, {"name": "Dried Rosemary", "category": "Groceries", "status": "complied"}, {"name": "Dried Thyme", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "PT. Opal Coffee Indonesia", "materials": [{"name": "Biji Kopi Astro's Blend", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "Rimba Rasa", "materials": [{"name": "Bawang Merah Goreng", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "Rumah Sayur", "materials": [{"name": "Bawang Bombay", "category": "Fresh", "status": "complied"}, {"name": "Bawang Merah Kupas", "category": "Fresh", "status": "complied"}, {"name": "Bawang Putih Kupas", "category": "Fresh", "status": "complied"}, {"name": "Cabe Merah Keriting", "category": "Fresh", "status": "complied"}, {"name": "Cabe Rawit Merah", "category": "Fresh", "status": "complied"}, {"name": "Daun Bawang Fresh", "category": "Fresh", "status": "complied"}, {"name": "Daun Jeruk", "category": "Fresh", "status": "complied"}, {"name": "Daun Salam Fresh", "category": "Fresh", "status": "complied"}, {"name": "Jahe Fresh", "category": "Fresh", "status": "complied"}, {"name": "Jamur Champignon", "category": "Fresh", "status": "complied"}, {"name": "Pakcoy", "category": "Fresh", "status": "complied"}, {"name": "Paprika Hijau Fresh", "category": "Fresh", "status": "complied"}, {"name": "Sereh", "category": "Fresh", "status": "complied"}]}, {"vendor_name": "SEJAGAT", "materials": [{"name": "Beras Jepang Shiroku 5kg", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "Stefanus Herry Priyanto", "materials": [{"name": "Sticker Bumbu Dasar Merah 5 x 19cm", "category": "PM", "status": "complied"}, {"name": "Sticker Bumbu Dasar Putih 5 x 19cm", "category": "PM", "status": "complied"}, {"name": "Sticker Emping Asin Goreng", "category": "PM", "status": "complied"}, {"name": "Sticker Kerupuk Udang", "category": "PM", "status": "complied"}]}, {"vendor_name": "Sumber Pangan", "materials": [{"name": "Demi Glace Sauce Mix KNORR 1 Kg", "category": "Groceries", "status": "complied"}, {"name": "Extra Virgin Minyak Zaitun Olive Oil BORGES 5L", "category": "Groceries", "status": "complied"}, {"name": "Furikake Mamasuka GIMBORI 50gr", "category": "Groceries", "status": "complied"}, {"name": "Garam Refina 1kg", "category": "Groceries", "status": "complied"}, {"name": "Gula Halus ROSE BRAND 500 gr", "category": "Groceries", "status": "complied"}, {"name": "Gula Kuning ROSE BRAND", "category": "Groceries", "status": "complied"}, {"name": "Kaldu Ikan Bonito SHIMAYA Dashi", "category": "Groceries", "status": "complied"}, {"name": "Kaldu Jamur Totole", "category": "Groceries", "status": "complied"}, {"name": "Kerupuk Udang Mentah FINNA 380g", "category": "Groceries", "status": "complied"}, {"name": "Mentaiko Sauce OMAYO 500gr", "category": "Groceries", "status": "complied"}, {"name": "Minyak Wijen Oh Guan Hing 600ml", "category": "Groceries", "status": "complied"}, {"name": "Prima Agung Mayonaise", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "UD Mansurin", "materials": [{"name": "Bawang Bombay", "category": "Fresh", "status": "complied"}, {"name": "Bawang Merah Kupas", "category": "Fresh", "status": "complied"}, {"name": "Bawang Putih Kupas", "category": "Fresh", "status": "complied"}, {"name": "Cabe Merah Keriting", "category": "Fresh", "status": "complied"}, {"name": "Cabe Rawit Merah", "category": "Fresh", "status": "complied"}, {"name": "Daun Bawang Fresh", "category": "Fresh", "status": "complied"}, {"name": "Daun Jeruk", "category": "Fresh", "status": "complied"}, {"name": "Daun Salam Fresh", "category": "Fresh", "status": "complied"}, {"name": "Ebi", "category": "Fresh", "status": "complied"}, {"name": "Gula Halus ROSE BRAND 500 gr", "category": "Groceries", "status": "complied"}, {"name": "Gula Kuning ROSE BRAND", "category": "Groceries", "status": "complied"}, {"name": "Jahe Fresh", "category": "Fresh", "status": "complied"}, {"name": "Jamur Champignon", "category": "Fresh", "status": "complied"}, {"name": "Jinten Utuh", "category": "Fresh", "status": "complied"}, {"name": "Kaldu Ayam Bubuk ROYCO", "category": "Groceries", "status": "complied"}, {"name": "Margarine BLUEBAND", "category": "Groceries", "status": "complied"}, {"name": "Pakcoy", "category": "Fresh", "status": "complied"}, {"name": "Sereh", "category": "Fresh", "status": "complied"}, {"name": "Tepung Terigu SEGITIGA BIRU 1 Kg", "category": "Groceries", "status": "complied"}]}, {"vendor_name": "Vi Printing", "materials": [{"name": "Sticker Garlic in Oil 5 x 19cm", "category": "PM", "status": "complied"}]}];
+
+let halalVendors = [];
+let halalMaterialRows = [];   // working rows while the modal is open
+let halalEditId = null;
+
+async function loadHalalInboundPage() {
+  halalVendors = await dbGet('halal_vendors');
+  renderHalalList();
+}
+
+function parseHalalMaterials(v) {
+  if (Array.isArray(v.materials)) return v.materials;
+  if (typeof v.materials === 'string') {
+    try { const parsed = JSON.parse(v.materials); return Array.isArray(parsed) ? parsed : []; } catch(e) { return []; }
+  }
+  return [];
+}
+
+function renderHalalList() {
+  const search = (document.getElementById('halal-search')?.value || '').trim().toLowerCase();
+  const isOfficer = currentRole === 'officer';
+
+  let rows = halalVendors.filter(v => {
+    if (!search) return true;
+    const materials = parseHalalMaterials(v);
+    if ((v.vendor_name||'').toLowerCase().includes(search)) return true;
+    return materials.some(m => (m.name||'').toLowerCase().includes(search));
+  });
+  rows = [...rows].sort((a,b) => (a.vendor_name||'').localeCompare(b.vendor_name||''));
+
+  const listEl = document.getElementById('halal-list');
+  const emptyEl = document.getElementById('halal-empty');
+  const emptyText = document.getElementById('halal-empty-text');
+  if (!listEl) return;
+
+  if (!rows.length) {
+    listEl.innerHTML = '';
+    if (emptyEl) emptyEl.style.display = '';
+    if (emptyText) emptyText.textContent = search
+      ? `Tidak ada vendor atau material yang cocok dengan "${search}".`
+      : (isOfficer ? 'Belum ada data vendor. Klik "+ Tambah Vendor" untuk menambahkan.' : 'Belum ada data vendor halal inbound.');
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  listEl.innerHTML = rows.map(v => {
+    const materials = parseHalalMaterials(v);
+    const matChips = materials.map(m => {
+      const complied = m.status === 'complied';
+      const bg = complied ? '#dcfce7' : '#fee2e2';
+      const border = complied ? '#bbf7d0' : '#fecaca';
+      const color = complied ? '#15803d' : '#b91c1c';
+      const icon = complied ? '✓' : '✕';
+      const cat = m.category ? ` <span style="opacity:0.65">· ${escapeHtml(m.category)}</span>` : '';
+      return `<span style="display:inline-flex;align-items:center;gap:5px;background:${bg};border:1px solid ${border};color:${color};border-radius:8px;padding:5px 10px;font-size:0.78rem;font-weight:600;margin:3px 6px 3px 0">${icon} ${escapeHtml(m.name||'—')}${cat}</span>`;
+    }).join('');
+    const compliedCount = materials.filter(m => m.status === 'complied').length;
+    return `<div class="card" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:0.95rem;color:var(--blue-900)">${escapeHtml(v.vendor_name||'—')}</div>
+          <div class="td-muted" style="font-size:0.76rem;margin-top:2px">${compliedCount}/${materials.length} material sudah comply BPJPH</div>
+        </div>
+        <div class="officer-only" style="display:flex;gap:5px">
+          <button class="btn btn-secondary btn-sm" onclick="editHalalVendor(${v.id})">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteHalalVendor(${v.id})">🗑</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap">${matChips || '<span class="td-muted" style="font-size:0.8rem">Belum ada material.</span>'}</div>
+    </div>`;
+  }).join('');
+}
+
+function openHalalVendorModal() {
+  if (currentRole !== 'officer') { showToast('Hanya QC Officer yang bisa menambah vendor','error'); return; }
+  halalEditId = null;
+  document.getElementById('halal-id').value = '';
+  document.getElementById('halal-vendor-name').value = '';
+  document.getElementById('modal-halal-title').textContent = 'Tambah Vendor';
+  halalMaterialRows = [{name:'', category:'', status:'complied'}];
+  renderHalalMaterialRows();
+  document.getElementById('modal-halal').classList.add('open');
+}
+
+function closeHalalVendorModal() {
+  document.getElementById('modal-halal').classList.remove('open');
+}
+
+function addHalalMaterialRow() {
+  halalMaterialRows.push({name:'', category:'', status:'complied'});
+  renderHalalMaterialRows();
+}
+
+function removeHalalMaterialRow(i) {
+  if (halalMaterialRows.length <= 1) { showToast('Minimal harus ada satu material','error'); return; }
+  halalMaterialRows.splice(i,1);
+  renderHalalMaterialRows();
+}
+
+function onHalalMaterialInput(i, field, val) {
+  halalMaterialRows[i][field] = val;
+}
+
+function renderHalalMaterialRows() {
+  const tbody = document.getElementById('halal-material-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = halalMaterialRows.map((m,i) => `
+    <tr>
+      <td><input class="form-input" value="${escapeHtml(m.name||'')}" placeholder="Nama material" oninput="onHalalMaterialInput(${i},'name',this.value)"></td>
+      <td>
+        <select class="form-input" onchange="onHalalMaterialInput(${i},'status',this.value)">
+          <option value="complied" ${m.status==='complied'?'selected':''}>✓ Sudah Comply</option>
+          <option value="not_complied" ${m.status==='not_complied'?'selected':''}>✕ Belum Comply</option>
+        </select>
+      </td>
+      <td><button type="button" class="btn btn-danger btn-sm" onclick="removeHalalMaterialRow(${i})" title="Hapus material">🗑</button></td>
+    </tr>`).join('');
+}
+
+async function saveHalalVendor() {
+  if (currentRole !== 'officer') { showToast('Hanya QC Officer yang bisa menyimpan vendor','error'); return; }
+  const vendorName = document.getElementById('halal-vendor-name').value.trim();
+  if (!vendorName) { showToast('Nama vendor wajib diisi','error'); return; }
+
+  const materials = halalMaterialRows
+    .map(m => ({ name: (m.name||'').trim(), category: (m.category||'').trim() || null, status: m.status === 'not_complied' ? 'not_complied' : 'complied' }))
+    .filter(m => m.name);
+
+  if (!materials.length) { showToast('Minimal satu material dengan nama harus diisi','error'); return; }
+
+  const row = {
+    vendor_name: vendorName,
+    materials: JSON.stringify(materials),
+    last_updated_by: currentUser,
+    last_updated_at: new Date().toISOString()
+  };
+
+  let result;
+  if (halalEditId) {
+    result = await dbUpdate('halal_vendors', halalEditId, row);
+    if (!result) return;
+    showToast('Vendor diperbarui!','success');
+  } else {
+    result = await dbInsert('halal_vendors', row);
+    if (!result) return;
+    showToast('Vendor ditambahkan!','success');
+  }
+  closeHalalVendorModal();
+  loadHalalInboundPage();
+}
+
+function editHalalVendor(id) {
+  if (currentRole !== 'officer') return;
+  const v = halalVendors.find(x => x.id === id);
+  if (!v) return;
+  halalEditId = v.id;
+  document.getElementById('halal-id').value = v.id;
+  document.getElementById('halal-vendor-name').value = v.vendor_name || '';
+  const materials = parseHalalMaterials(v);
+  halalMaterialRows = materials.length ? materials.map(m => ({...m})) : [{name:'', category:'', status:'complied'}];
+  document.getElementById('modal-halal-title').textContent = 'Edit Vendor';
+  renderHalalMaterialRows();
+  document.getElementById('modal-halal').classList.add('open');
+}
+
+async function deleteHalalVendor(id) {
+  if (currentRole !== 'officer') { showToast('Hanya QC Officer yang bisa menghapus vendor','error'); return; }
+  if (!confirm('Hapus vendor ini beserta seluruh daftar materialnya?')) return;
+  await dbDelete('halal_vendors', id);
+  showToast('Vendor dihapus!','success');
+  loadHalalInboundPage();
+}
+
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    TRIAL REPORTS
